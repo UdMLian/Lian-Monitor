@@ -16,6 +16,7 @@ class Transport {
         if (this.queue.length >= this.batchSize) {
             this._flush()
         } else {
+            clearTimeout(this.timer)
             this.timer = setTimeout(() => this._flush(), this.batchInterval)
         }
     }
@@ -37,7 +38,6 @@ class Transport {
         const response = await this._sendByFetch(data)
         if (response && response.ok) return
         if (this._sendByBeacon(data)) return
-        if (this._sendByImage(data)) return
         this._retry(data, 1)
     }
 
@@ -45,6 +45,7 @@ class Transport {
         const img = new Image()
         const encoded = encodeURIComponent(data)
         img.src = `${this.url}?data=${encoded}`
+        return
     }
 
     _sendByFetch(data) {
@@ -61,7 +62,6 @@ class Transport {
             // 网络错误
             return null
         }
-        return response
     }
 
     _sendByBeacon(data) {
@@ -84,6 +84,7 @@ class Transport {
         if (response && response.ok) return;
         if (this._sendByBeacon(data)) return;
 
+        //做最后一次重试
         if (attempt === this.retryCount) {
             this._sendByImage(data);
             return;
