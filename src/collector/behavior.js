@@ -127,6 +127,11 @@ const behaviorCollector = {
       if (!this._monitor) {
         return self._originalXHRSend.apply(this, [body, ...rest]);
       }
+
+      if (self._isOwnReportUrl(this._monitor.url)) {
+        return self._originalXHRSend.apply(this, [body, ...rest]);
+      }
+
       const monitor = this._monitor;
       // 清理同一个 monitor 上的旧 listener（send→send 无 open 的罕见场景）
       if (monitor._loadendHandler) {
@@ -161,8 +166,12 @@ const behaviorCollector = {
     this._originalFetch = window.fetch;
 
     window.fetch = async (input, init = {}) => {
-      const startTime = Date.now();
       const url = typeof input === 'string' ? input : (input.url || input);
+      if (self._isOwnReportUrl(url)) {
+        return self._originalFetch(input, init);
+      }
+
+      const startTime = Date.now();
       const method = (init.method || 'GET').toUpperCase();
 
       try {
@@ -216,6 +225,18 @@ const behaviorCollector = {
   },
 
   // ── 工具方法 ──────────────────────────────────────────────
+
+  _isOwnReportUrl(url) {
+    try {
+      const dsn = this.client.options.dsn
+      if (!dsn) return false
+      const target = new URL(url, location.origin)
+      const dsnUrl = new URL(dsn, location.origin)
+      return target.origin === dsnUrl.origin && target.pathname === dsnUrl.pathname
+    } catch {
+      return false
+    }
+  },
 
   addBreadcrumb(type, data) {
     this.client.getScope().addBreadcrumb({ type, ...data });

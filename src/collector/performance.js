@@ -42,6 +42,8 @@ const performanceCollector = {
 
     this._resourceObserver = new PerformanceObserver((list) => {
       for (const entry of list.getEntries()) {
+        //sdk自己上传的请求可能会被资源监听捕获所以要排除
+        if (this._isOwnReportUrl(entry.name)) continue;
         //跨域资源判断
         //浏览器出于安全不会暴露传输大小，entry.transferSize 始终为 0。直接上报 0 会让人以为资源是空文件。
         let transferSize = entry.transferSize
@@ -122,6 +124,18 @@ const performanceCollector = {
       onINP(handler);
     } catch (e) {
       // web-vitals 加载失败，跳过
+    }
+  },
+
+  _isOwnReportUrl(url) {
+    try {
+      const dsn = this.client.options.dsn;
+      if (!dsn) return false;
+      const target = new URL(url, location.origin);
+      const dsnUrl = new URL(dsn, location.origin);
+      return target.origin === dsnUrl.origin && target.pathname === dsnUrl.pathname;
+    } catch {
+      return false;
     }
   },
 
