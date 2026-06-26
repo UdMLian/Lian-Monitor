@@ -1,5 +1,5 @@
 import MonitorCore from './core';
-import ErrorCollector from './collector/errorCollector';
+import ErrorCollector from './collector/error.js';
 import PerformanceCollector from './collector/performanceCollector';
 import BehaviorCollector from './collector/behaviorCollector';
 import DataReporter from './reporter/dataReporter';
