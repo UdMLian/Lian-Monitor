@@ -64,6 +64,31 @@ const performanceCollector = {
         });
       }, 30000);
     }
+
+    // 4. Web Vitals（懒加载）
+    this._setupWebVitals();
+  },
+
+  async _setupWebVitals() {
+    try {
+      const { onLCP, onFCP, onCLS, onTTFB, onINP } = await import('web-vitals');
+
+      const handler = (metric) => {
+        this._capture('web-vital', {
+          name: metric.name,
+          value: metric.value,
+          rating: metric.rating,
+        });
+      };
+
+      onLCP(handler);
+      onFCP(handler);
+      onCLS(handler);
+      onTTFB(handler);
+      onINP(handler);
+    } catch (e) {
+      // web-vitals 加载失败，跳过
+    }
   },
 
   _capture(subType, data) {
