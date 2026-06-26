@@ -1,3 +1,12 @@
+function sanitizeUrl(url) {
+  try {
+    const u = new URL(url);
+    return u.origin + u.pathname;
+  } catch {
+    return '(invalid-url)';
+  }
+}
+
 const performanceCollector = {
   name: 'performance',
 
@@ -15,7 +24,7 @@ const performanceCollector = {
       this._resourceObserver = new PerformanceObserver((list) => {
         for (const entry of list.getEntries()) {
           this._capture('resource', {
-            name: entry.name,
+            name: sanitizeUrl(entry.name),
             duration: entry.duration,
             initiatorType: entry.initiatorType,
             transferSize: entry.transferSize,
