@@ -50,6 +50,7 @@ const behaviorCollector = {
     this._originalReplaceState = history.replaceState;
 
     history.pushState = function (...args) {
+      const result = self._originalPushState.apply(this, args);
       const url = args[2];
       if (url) {
         self.addBreadcrumb('route', {
@@ -59,10 +60,11 @@ const behaviorCollector = {
         });
         self._lastHref = String(url);
       }
-      return self._originalPushState.apply(this, args);
+      return result;
     };
 
     history.replaceState = function (...args) {
+      const result = self._originalReplaceState.apply(this, args);
       const url = args[2];
       if (url) {
         self.addBreadcrumb('route', {
@@ -72,7 +74,7 @@ const behaviorCollector = {
         });
         self._lastHref = String(url);
       }
-      return self._originalReplaceState.apply(this, args);
+      return result;
     };
 
     // popstate / hashchange
@@ -109,10 +111,13 @@ const behaviorCollector = {
     this._originalXHRSend = XMLHttpRequest.prototype.send;
 
     XMLHttpRequest.prototype.open = function (method, url, ...rest) {
+      // 清理上一次可能残留的 listener（XHR 复用场景）
+      this.removeEventListener('loadend', this._monitor?._loadendHandler);
       this._monitor = {
         method: method.toUpperCase(),
         url: String(url),
         startTime: Date.now(),
+        _loadendHandler: null,
       };
       return self._originalXHROpen.apply(this, [method, url, ...rest]);
     };
@@ -121,14 +126,16 @@ const behaviorCollector = {
       if (!this._monitor) {
         return self._originalXHRSend.apply(this, [body, ...rest]);
       }
-      this.addEventListener('loadend', () => {
+      const monitor = this._monitor;
+      monitor._loadendHandler = () => {
         self.addBreadcrumb('xhr', {
-          method: this._monitor.method,
-          url: this._monitor.url,
+          method: monitor.method,
+          url: monitor.url,
           status: this.status,
-          duration: Date.now() - this._monitor.startTime,
+          duration: Date.now() - monitor.startTime,
         });
-      });
+      };
+      this.addEventListener('loadend', monitor._loadendHandler);
       return self._originalXHRSend.apply(this, [body, ...rest]);
     };
   },
