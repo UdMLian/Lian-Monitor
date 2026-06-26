@@ -28,6 +28,7 @@ const behaviorCollector = {
 
       this.addBreadcrumb('click', {
         tagName: target.tagName.toLowerCase(),
+        selector: this._getSelector(target),
         id: target.id || undefined,
         className: target.className || undefined,
       });
@@ -236,6 +237,45 @@ const behaviorCollector = {
     } catch {
       return false
     }
+  },
+
+  _getSelector(element) {
+    if (!element || element === document.body) return null
+    const parts = []
+    let current = element
+    let depth = 0
+    const maxDepth = 5
+    while (current && current !== document.body && current !== document.documentElement && depth < maxDepth) {
+      let segment = current.tagName.toLowerCase()
+      if (current.id) {
+        parts.unshift(`#${current.id}`)
+        break
+      }
+      const parent = current.parentElement
+      if (parent) {
+        const siblings = Array.from(parent.children).filter(
+          el => el.tagName === current.tagName
+        )
+        if (siblings.length > 1) {
+          const index = siblings.indexOf(current) + 1;
+          segment += `:nth-of-type(${index})`
+        }
+      }
+
+      parts.unshift(segment)
+      current = current.parentElement
+      depth++
+    }
+    const selector = parts.join('>')
+    // 验证选择器能准确命中目标元素
+    try {
+      if (document.querySelector(selector) === element) {
+        return selector;
+      }
+    } catch {
+      // 非法选择器（极少见，如特殊字符 tagName）
+    }
+    return null;
   },
 
   addBreadcrumb(type, data) {
