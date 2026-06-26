@@ -195,7 +195,7 @@ const behaviorCollector = {
   _setupPageView() {
     this._pageEntryTime = Date.now()
     this.addBreadcrumb('page-enter', {
-      url: location.url,
+      url: location.href,
       referrer: document.referrer || undefined
     })
 
