@@ -49,9 +49,16 @@ class MonitorClient {
         return sessionId;
     }
 
-    //传入插件或者中间件，并存入队列，支持链式调用
+    /*
+     * Middleware：纯函数 (event) => event | null
+     * - 每个事件都经过所有 Middleware，按注册顺序执行
+     * - 示例：Filter、Sampling、Enrichment、beforeSend
+     *
+     * Plugin：带生命周期的对象 { name, setup(client), teardown() }
+     * - 一次初始化，不参与事件处理
+     * - 示例：SessionReplay、Vue/React 集成
+     */
     use(fnOrPlugin) {
-        //为什么plugin和中间件类型不同
         if (typeof fnOrPlugin === 'function') {
             this.pipeline.push(fnOrPlugin)
         } else if (typeof fnOrPlugin === 'object' && fnOrPlugin !== null) {
