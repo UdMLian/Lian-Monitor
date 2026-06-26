@@ -13,12 +13,11 @@ const behaviorCollector = {
         tagName: target.tagName.toLowerCase(),
         id: target.id || undefined,
         className: target.className || undefined,
-        text: target.textContent?.trim().substring(0, 50),
       });
     };
     document.addEventListener('click', this._onClick, true);
 
-    //路由监听
+    // 路由监听
     this._lastHref = location.href;
     this._onPushState = (...args) => {
       const url = args[2];
@@ -48,7 +47,6 @@ const behaviorCollector = {
     this._originalPushState = history.pushState;
     this._originalReplaceState = history.replaceState;
 
-    //劫持
     const collector = this;
     history.pushState = function (...args) {
       collector._onPushState(...args);
@@ -105,7 +103,6 @@ const behaviorCollector = {
         return collector._originalXHRSend.apply(this, [body, ...rest]);
       };
     }
-
   },
 
   //移除监听
@@ -134,3 +131,5 @@ const behaviorCollector = {
     return [...this.breadcrumbs];
   },
 };
+
+// BehaviorCollector 不调 client.capture()，它只存面包屑，等错误发生时由 _enrichment 来取。
