@@ -2,7 +2,16 @@
 import config from "../core/config.js";
 import Transport from './transport.js';
 class MonitorClient {
-    constructor({ ...config, ...options }) {
+    constructor(options = {}) {
+        // 必填校验
+        if (!options.dsn) {
+            throw new Error('[Monitor] dsn is required');
+        }
+        // 范围校验
+        if (options.sampleRate != null && (options.sampleRate < 0 || options.sampleRate > 1)) {
+            throw new Error('[Monitor] sampleRate must be between 0 and 1');
+        }
+
         // 把用户传的 options 和默认配置合并
         this.options = { ...config, ...options }
         // 中间件数组（pipeline 里的函数们）
@@ -19,9 +28,19 @@ class MonitorClient {
 
         // 当前状态
         this.state = 'idle';
-        //额外信息
-        this.sessionId = 'session_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+        // Session 持久化：同一会话内页面刷新不产生新 sessionId
+        this.sessionId = this._getOrCreateSessionId();
         this.userId = null;
+    }
+
+    _getOrCreateSessionId() {
+        const key = 'monitor_session';
+        let sessionId = sessionStorage.getItem(key);
+        if (!sessionId) {
+            sessionId = 'session_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+            sessionStorage.setItem(key, sessionId);
+        }
+        return sessionId;
     }
 
     //传入插件或者中间件，并存入队列，支持链式调用
@@ -92,11 +111,24 @@ class MonitorClient {
         this.transport = new Transport(this.options)
         // 3. 启动 Collector（后面写）
         for (const [name, collector] of this.collectors) {
-            collector.setup(this)
+            try {
+                collector.setup(this);
+            } catch (e) {
+                if (this.options.debug) {
+                    console.error(`[Monitor] Collector "${name}" setup failed:`, e);
+                }
+                // 继续启动其他的，不让一个采集器拖垮整个 SDK                                                                 
+            }
         }
         //启动plugin
         for (const plugin of this.plugins) {
-            plugin.setup?.(this)
+            try {
+                plugin.setup?.(this)
+            } catch (e) {
+                if (this.options.debug) {
+                    console.error(`[Monitor] Plugin "${plugin.name}" setup failed:`, e);
+                }
+            }
         }
         // 4. 开工
         this.state = 'running';
@@ -104,13 +136,25 @@ class MonitorClient {
 
     destroy() {
         // 关掉所有采集器
-        for (const [, collector] of this.collectors) {
-            collector.teardown();
+        for (const [name, collector] of this.collectors) {
+            try {
+                collector.teardown();
+            } catch (e) {
+                if (this.options.debug) {
+                    console.error(`[Monitor] Collector "${name}" teardown failed:`, e);
+                }
+            }
         }
 
         // 关掉所有插件
         for (const plugin of this.plugins) {
-            plugin.teardown?.();
+            try {
+                plugin.teardown?.();
+            } catch (e) {
+                if (this.options.debug) {
+                    console.error(`[Monitor] Plugin "${plugin.name}" teardown failed:`, e);
+                }
+            }
         }
 
         // 清空 transport（会先把队列剩余数据发出去）
@@ -131,17 +175,8 @@ class MonitorClient {
     //三个默认中间件
     //判断这个事件该不该被处理。返回 null = 丢弃，返回 event = 放行
     _filter(event) {
-        // 当前最基础的过滤：检查用户在 config 里有没有关掉这类事件的采集。
-        // 用户关了错误采集，且当前是错误事件 → 丢弃
-        if (!this.options.error.enabled && event.type === 'error') return null;
-
-        // 用户关了性能采集
-        if (!this.options.performance.enabled && event.type === 'performance') return null;
-
-        // 用户关了行为采集
-        if (!this.options.behavior.enabled && event.type === 'behavior') return null;
-
-        // 放行
+        const typeConfig = this.options[event.type];
+        if (typeConfig && typeConfig.enabled === false) return null;
         return event;
     }
 
@@ -153,6 +188,12 @@ class MonitorClient {
 
     //为事件附加上下文信息
     _enrichment(event) {
+        // SDK 元数据
+        event.sdk = {
+            name: 'lian-monitor',
+            version: '1.0.0',
+        };
+
         // 通用：每个事件都带上
         event.sessionId = this.sessionId;
         event.pageUrl = window.location.href;
@@ -180,3 +221,5 @@ class MonitorClient {
         return behaviorCollector ? behaviorCollector.getBreadcrumbs() : [];
     }
 }
+
+export default MonitorClient
