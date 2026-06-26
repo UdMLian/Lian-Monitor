@@ -2,7 +2,6 @@ const behaviorCollector = {
   name: 'behavior',
   setup(client) {
     this.client = client;
-    this.breadcrumbs = [];
 
     // 点击监听
     this._onClick = (event) => {
@@ -158,12 +157,7 @@ const behaviorCollector = {
   },
 
   addBreadcrumb(type, data) {
-    this.breadcrumbs.push({ type, timestamp: Date.now(), ...data });
-    if (this.breadcrumbs.length > 20) this.breadcrumbs.shift();
-  },
-
-  getBreadcrumbs() {
-    return [...this.breadcrumbs];
+    this.client.getScope().addBreadcrumb({ type, ...data });
   },
 };
 

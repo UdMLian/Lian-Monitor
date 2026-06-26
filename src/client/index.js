@@ -1,6 +1,7 @@
 //整个 SDK 的中央调度器
 import config from "../core/config.js";
 import Transport from './transport.js';
+import Scope from "../core/scope.js";
 class MonitorClient {
     constructor(options = {}) {
         // 必填校验
@@ -30,7 +31,12 @@ class MonitorClient {
         this.state = 'idle';
         // Session 持久化：同一会话内页面刷新不产生新 sessionId
         this.sessionId = this._getOrCreateSessionId();
-        this.userId = null;
+        // Scope：存储面包屑、用户信息，与 Collector 解耦
+        this.scope = new Scope();
+    }
+
+    getScope() {
+        return this.scope;
     }
 
     _getOrCreateSessionId() {
@@ -166,9 +172,9 @@ class MonitorClient {
         return this;
     }
 
-    //设置用户id
+    //设置用户信息
     setUserId(userId) {
-        this.userId = userId;
+        this.scope.setUser(userId);
         return this;
     }
 
@@ -200,27 +206,17 @@ class MonitorClient {
         event.sessionId = this.sessionId;
         event.pageUrl = window.location.href;
 
-        // 用户设置了 userId 就带上
-        if (this.userId) {
-            event.userId = this.userId;
+        // 用户信息
+        if (this.scope.userId) {
+            event.userId = this.scope.userId;
         }
 
-        // 错误事件：附加面包屑
+        // 错误事件：从 Scope 取面包屑，不直接依赖 BehaviorCollector
         if (event.type === 'error') {
-            event.breadcrumbs = this._getBreadcrumbs();
+            event.breadcrumbs = this.scope.getBreadcrumbs();
         }
 
         return event;
-    }
-
-    // 面包屑（breadcrumbs）就是错误发生前用户做了什么操作的记录。
-    _getBreadcrumbs() {
-        // 1. 从 Map 里按名字取出 behavior 采集器
-        const behaviorCollector = this.collectors.get('behavior');
-
-        // 2. 如果存在 → 调它的 getBreadcrumbs() 拿面包屑数组
-        //    如果不存在 → 返回空数组 []
-        return behaviorCollector ? behaviorCollector.getBreadcrumbs() : [];
     }
 }
 
