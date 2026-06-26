@@ -23,11 +23,22 @@ const performanceCollector = {
     this._resourceObserver?.disconnect();
     this._longTaskObserver?.disconnect();
     if (this._memoryTimer) clearInterval(this._memoryTimer);
+    if (this._resourceBufferFullHandler) {
+      performance.removeEventListener('resourcetimingbufferfull', this._resourceBufferFullHandler);
+    }
   },
 
   // 资源加载耗时
   _setupResourceTiming() {
     if (!window.PerformanceObserver) return;
+    performance.setResourceTimingBufferSize(500);
+
+    const onBufferFull = () => {
+      performance.clearResourceTimings();
+      performance.setResourceTimingBufferSize(500);
+    };
+    performance.addEventListener('resourcetimingbufferfull', onBufferFull);
+    this._resourceBufferFullHandler = onBufferFull;
 
     this._resourceObserver = new PerformanceObserver((list) => {
       for (const entry of list.getEntries()) {
@@ -38,6 +49,7 @@ const performanceCollector = {
           transferSize: entry.transferSize,
         });
       }
+      performance.clearResourceTimings();
     });
     this._resourceObserver.observe({ type: 'resource', buffered: true });
   },
