@@ -42,11 +42,24 @@ const performanceCollector = {
 
     this._resourceObserver = new PerformanceObserver((list) => {
       for (const entry of list.getEntries()) {
+        //跨域资源判断
+        //浏览器出于安全不会暴露传输大小，entry.transferSize 始终为 0。直接上报 0 会让人以为资源是空文件。
+        let transferSize = entry.transferSize
+        if (transferSize === 0) {
+          try {
+            if (new URL(entry.name).origin !== location.origin) {
+              transferSize = undefined;
+            }
+          } catch {
+            // URL 解析失败，保持 0
+          }
+        }
+
         this._capture('resource', {
           name: sanitizeUrl(entry.name),
           duration: entry.duration,
           initiatorType: entry.initiatorType,
-          transferSize: entry.transferSize,
+          transferSize: transferSize,
         });
       }
       performance.clearResourceTimings();
