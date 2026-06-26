@@ -31,14 +31,15 @@ export default {
   reportMethod: 'fetch',
   error: {
     enabled: true,
-
+    sampleRate: 1,            // 错误 100% 采集
   },
   performance: {
     enabled: true,
-
+    sampleRate: 0.5,          // 性能 50% 采集
   },
   behavior: {
     enabled: true,
+    sampleRate: 0.3,          // 行为 30% 采集
     maxBreadcrumbs: 20,
   },
 }

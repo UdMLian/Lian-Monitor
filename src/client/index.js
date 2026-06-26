@@ -180,9 +180,11 @@ class MonitorClient {
         return event;
     }
 
-    //采样
+    //采样：先查该类型的独立采样率，没有就用全局
     _sampling(event) {
-        if (Math.random() > this.options.sampleRate) return null;
+        const typeConfig = this.options[event.type];
+        const rate = typeConfig?.sampleRate ?? this.options.sampleRate;
+        if (Math.random() > rate) return null;
         return event;
     }
 
