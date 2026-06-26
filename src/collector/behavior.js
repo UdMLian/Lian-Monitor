@@ -8,6 +8,7 @@ const behaviorCollector = {
     this._setupRoute();
     this._setupXHR();
     this._setupFetch();
+    this._setupPageView()
   },
 
   teardown() {
@@ -15,6 +16,7 @@ const behaviorCollector = {
     this._teardownRoute();
     this._teardownXHR();
     this._teardownFetch();
+    this._teardownPageView()
   },
 
   // ── 点击监听 ──────────────────────────────────────────────
@@ -176,6 +178,29 @@ const behaviorCollector = {
     if (this._originalFetch) {
       window.fetch = this._originalFetch;
     }
+  },
+
+  _setupPageView() {
+    this._pageEntryTime = Date.now()
+    this.addBreadcrumb('page-enter', {
+      url: location.url,
+      referrer: document.referrer || undefined
+    })
+
+    // 页面离开时记录停留时长。用 pagehide 而非 beforeunload：
+    // beforeunload 在移动端不可靠，pagehide 总是触发
+    this._onPageHide = () => {
+      this.addBreadcrumb('page-leave', {
+        url: location.href,
+        duration: Date.now() - this._pageEntryTime,
+      });
+    };
+
+    window.addEventListener('pagehide', this._onPageHide);
+  },
+
+  _teardownPageView() {
+    window.removeEventListener('pagehide', this._onPageHide);
   },
 
   // ── 工具方法 ──────────────────────────────────────────────
