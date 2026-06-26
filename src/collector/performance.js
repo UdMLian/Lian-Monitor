@@ -116,3 +116,4 @@ const performanceCollector = {
   │ FCP/TTF │ 相对简单，但也需要查 paint 和 navigation entry，以及处理 buffered: true          │ onFCP(handler) /      │
   │ B       │                                                                                  │ onTTFB(handler)       │
   └─────────┴──────────────────────────────────────────────────────────────────────────────────┴───────────────────────┘ */
+export default performanceCollector;

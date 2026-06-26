@@ -54,3 +54,4 @@ const errorCollector = {
     });
   }
 }
+export default errorCollector;

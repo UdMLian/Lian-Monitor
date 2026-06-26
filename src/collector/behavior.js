@@ -168,3 +168,5 @@ const behaviorCollector = {
 };
 
 // BehaviorCollector 不调 client.capture()，它只存面包屑，等错误发生时由 _enrichment 来取。
+
+export default behaviorCollector;
