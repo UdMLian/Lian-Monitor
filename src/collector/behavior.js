@@ -111,8 +111,9 @@ const behaviorCollector = {
     this._originalXHRSend = XMLHttpRequest.prototype.send;
 
     XMLHttpRequest.prototype.open = function (method, url, ...rest) {
-      // 清理上一次可能残留的 listener（XHR 复用场景）
-      this.removeEventListener('loadend', this._monitor?._loadendHandler);
+      // 不在这里清理旧 listener——如果上一个请求还在飞行中，它的 loadend
+      // 还没触发，清理了就会丢面包屑。旧 listener 通过闭包捕获了它自己的
+      // monitor，即使 this._monitor 被覆盖也不会用错数据。
       this._monitor = {
         method: method.toUpperCase(),
         url: String(url),
@@ -127,6 +128,10 @@ const behaviorCollector = {
         return self._originalXHRSend.apply(this, [body, ...rest]);
       }
       const monitor = this._monitor;
+      // 清理同一个 monitor 上的旧 listener（send→send 无 open 的罕见场景）
+      if (monitor._loadendHandler) {
+        this.removeEventListener('loadend', monitor._loadendHandler);
+      }
       monitor._loadendHandler = () => {
         self.addBreadcrumb('xhr', {
           method: monitor.method,
