@@ -1,7 +1,5 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
-
 ## Build & Development
 
 ```bash
@@ -12,37 +10,31 @@ npm run mock:server        # Mock report server on port 8787
 
 ## Architecture
 
-Lian-Monitor is a front-end monitoring SDK (`window.YuanMonitor`). It collects errors, performance metrics, user behavior breadcrumbs, and session replays, then reports them to a server endpoint.
+Lian-Monitor is a front-end monitoring SDK. It collects errors, performance metrics, and user behavior breadcrumbs, then reports them to a server endpoint.
 
-### Module layers (event-driven via EventBus)
+### Module layers (Client + Pipeline)
 
 ```
-src/index.js (YuanMonitor — top-level orchestrator)
-  ├── core/index.js       (MonitorCore — session, sampling, config)
-  ├── collector/          (data sources)
-  │   ├── errorCollector.js        — window.onerror, unhandledrejection, resource errors
-  │   ├── performanceCollector.js  — Web Vitals, resource timing, long tasks, memory
-  │   └── behaviorCollector.js     — clicks, route changes, XHR/fetch breadcrumbs
-  ├── reporter/dataReporter.js     — batch queue → fetch/beacon/image → server
-  ├── advanced/sessionReplay.js    — rrweb-based replay (lazy loaded)
-  └── framework/                   — Vue/React integration (lazy loaded)
+src/index.js                    — entry, exports init() + MonitorClient
+  ├── client/index.js           — MonitorClient (orchestrator)
+  │     ├── Pipeline: Filter → Sampling → Enrichment → beforeSend → Transport.send()
+  │     └── Manages Collectors (Map), Plugins (array), Scope, state machine
+  ├── client/transport.js       — send() → internal queue → batch → fetch/beacon/image (with retry)
+  ├── collector/error.js        — window.onerror, unhandledrejection, resource error → client.capture()
+  ├── collector/performance.js  — PerformanceObserver (resource/longtask), web-vitals (lazy), memory
+  ├── collector/behavior.js     — click, history hijack, XHR/Fetch hijack → scope.addBreadcrumb()
+  ├── core/config.js            — default options
+  └── core/scope.js             — breadcrumbs + user info container, decouples Client from Collectors
 ```
-
-All modules communicate through a **singleton EventBus** (`src/core/eventBus.js`). `YuanMonitor.init()` emits `core:initialized`, triggering each collector and the reporter to initialize.
 
 ### Key design decisions
 
-- **Lazy loading**: `rrweb`, `web-vitals`, and framework integrations are loaded via dynamic `import()`. They are not bundled — set as `external` in vite.config.js.
-- **Singleton pattern**: `init()` creates the instance once; subsequent calls return the existing instance (and optionally merge new config).
-- **Sampling**: `MonitorCore.init()` performs a random check against `config.sampleRate`. If the check fails, the entire SDK disables itself.
-- **Breadcrumbs**: User actions (clicks, routes, XHR/fetch) are collected as breadcrumbs and attached to error reports for debugging context.
-- **Session replay**: Triggered by errors — starts recording on `error:captured`, auto-stops 10s after the last error, then uploads.
-
-## Known issues
-
-- **`window.performance.entryTypes` does not exist** — `performanceCollector.js` lines 113 and 121 should use `PerformanceObserver.supportedEntryTypes` (a static array). This causes long-task monitoring to never activate and the `buffered: true` resource observer branch to never execute.
-- **`eventBus.emit()` silently swallows callback errors** (`eventBus.js:40-41`). Errors in performance/error handlers are lost with no warning.
-- **`reactIntegration.js` uses `require('react')`** — this will fail in strict ESM environments. It should use dynamic `import()` like the other integrations.
-- **No re-init guard** on `PerformanceCollector` — calling `init()` twice without `destroy()` leaks old `PerformanceObserver` instances and `setInterval` timers.
-- **`performance.memory` is Chrome-only** and non-standard; Firefox/Safari return `undefined`.
-- **INP (Interaction to Next Paint)** replaced FID in March 2024. `web-vitals` v5 supports `onINP()` but the code only listens to `onFID`.
+- **Pipeline**: ordered middleware chain. Each fn receives an event, returns event (or null to drop). Registered via `client.use(fn)`. Execution order is guaranteed.
+- **Scope pattern**: Collectors write to `client.getScope()`; Enrichment reads from it. Client never queries a specific Collector.
+- **Collector vs Plugin vs Middleware**: Collectors produce events via `client.capture()`; Plugins have lifecycle (`setup`/`teardown`) but don't produce events; Middleware are pure functions in the pipeline.
+- **Lazy loading**: `web-vitals` and future plugins are loaded via dynamic `import()`. They are marked as `external` in vite.config.js so they don't bundle.
+- **Session persistence**: sessionId stored in `sessionStorage`, survives page refreshes.
+- **Sampling**: per-type sampleRate falls back to global `sampleRate`. Error 100%, performance 50%, behavior 30% by default.
+- **Config validation**: `dsn` is required at construction time; `sampleRate` range-checked.
+- **Error isolation**: Pipeline middleware errors and Collector `setup`/`teardown` errors are caught individually — one failure doesn't crash the whole SDK.
+- **Transport fallback chain**: `fetch POST → sendBeacon → Image beacon`, with exponential backoff retry (1s→2s→4s).
