@@ -37,6 +37,9 @@ class Transport {
     async _deliver(data) {
         const response = await this._sendByFetch(data)
         if (response && response.ok) return
+        if (response && response.status >= 400 && response.status < 500) {
+            return  // 4xx 直接丢弃，不重试
+        }
         if (this._sendByBeacon(data)) return
         this._retry(data, 1)
     }
@@ -99,7 +102,10 @@ class Transport {
             this.timer = null;
         }
         // 把队列里剩下的数据最后发一次
-        this._flush();
+        if (this.queue.length > 0) {
+            this._sendByBeacon(JSON.stringify(this.queue))  // 同步、可靠
+            this.queue = []
+        }
     }
 
 
