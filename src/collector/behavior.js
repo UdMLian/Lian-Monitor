@@ -102,6 +102,37 @@ const behaviorCollector = {
         });
         return collector._originalXHRSend.apply(this, [body, ...rest]);
       };
+
+    }
+
+    // Fetch 劫持
+    if (window.fetch) {
+      this._originalFetch = window.fetch;
+
+      window.fetch = async (input, init = {}) => {
+        const startTime = Date.now();
+        const url = typeof input === 'string' ? input : (input.url || input);
+        const method = (init.method || 'GET').toUpperCase();
+
+        try {
+          const response = await collector._originalFetch(input, init);
+          collector.addBreadcrumb('fetch', {
+            method,
+            url: String(url),
+            status: response.status,
+            duration: Date.now() - startTime,
+          });
+          return response;
+        } catch (err) {
+          collector.addBreadcrumb('fetch', {
+            method,
+            url: String(url),
+            error: true,
+            duration: Date.now() - startTime,
+          });
+          throw err;
+        }
+      };
     }
   },
 
@@ -119,6 +150,10 @@ const behaviorCollector = {
     if (window.XMLHttpRequest && this._originalXHROpen) {
       XMLHttpRequest.prototype.open = this._originalXHROpen;
       XMLHttpRequest.prototype.send = this._originalXHRSend;
+    }
+
+    if (this._originalFetch) {
+      window.fetch = this._originalFetch;
     }
   },
 
