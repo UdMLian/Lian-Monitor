@@ -324,7 +324,11 @@ const behaviorCollector = {
   // ── Console 拦截（breadcrumb） ─────────────────────────────
 
   _setupConsole() {
+    // 允许用户通过 captureConsole: false 关闭 console breadcrumb
+    const captureConsole = this.client.options.behavior?.captureConsole;
+    if (captureConsole === false) return;
     if (!window.console) return;
+
     const self = this;
     const levels = ['log', 'warn', 'error'];
 
@@ -340,13 +344,7 @@ const behaviorCollector = {
         // 先调原始方法，保留控制台输出
         original.apply(console, args);
 
-        const serialized = Array.from(args).map(arg => {
-          if (arg instanceof Error) return arg.message + '\n' + (arg.stack || '');
-          if (typeof arg === 'object') {
-            try { return JSON.parse(JSON.stringify(arg)); } catch { return String(arg); }
-          }
-          return String(arg);
-        });
+        const serialized = Array.from(args).map(arg => self._sanitizeArg(arg));
 
         const breadcrumbLevel = method === 'log' ? 'log' : method === 'warn' ? 'warning' : 'error';
         self.addBreadcrumb('console', {
@@ -368,6 +366,48 @@ const behaviorCollector = {
       if (wrapper && savedOriginal && console[method] === wrapper) {
         console[method] = savedOriginal;
       }
+    }
+  },
+
+  // 脱敏序列化：敏感 key 替换为 [REDACTED]，限制深度和长度
+  _sanitizeArg(arg, depth = 0) {
+    const MAX_DEPTH = 3;
+    const MAX_STRING = 200;
+    const MAX_ARRAY = 10;
+    // 敏感 key 模式：token、secret、password 等
+    const SENSITIVE_RE = /^(token|secret|password|authorization|api_?key|api_?secret|credential|private_?key|access_?token)$/i;
+
+    if (depth > MAX_DEPTH) return '[MaxDepth]';
+
+    try {
+      if (arg instanceof Error) {
+        return (arg.message || '') + '\n' + (arg.stack || '');
+      }
+
+      if (arg === null || arg === undefined) return arg;
+
+      if (typeof arg === 'string') {
+        return arg.length > MAX_STRING ? arg.substring(0, MAX_STRING) + '...' : arg;
+      }
+
+      if (typeof arg !== 'object') return String(arg);
+
+      if (Array.isArray(arg)) {
+        return arg.slice(0, MAX_ARRAY).map(item => this._sanitizeArg(item, depth + 1));
+      }
+
+      // Plain object：遍历 key，敏感的替换为 [REDACTED]
+      const result = {};
+      for (const key of Object.keys(arg)) {
+        if (SENSITIVE_RE.test(key)) {
+          result[key] = '[REDACTED]';
+        } else {
+          result[key] = this._sanitizeArg(arg[key], depth + 1);
+        }
+      }
+      return result;
+    } catch {
+      return '[Unserializable]';
     }
   },
 

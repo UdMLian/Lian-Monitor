@@ -47,5 +47,6 @@ export default {
     enabled: true,
     sampleRate: 0.3,          // 行为 30% 采集
     maxBreadcrumbs: 20,
+    captureConsole: true,     // 是否拦截 console.log/warn/error → breadcrumb
   },
 }
