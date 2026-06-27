@@ -108,6 +108,19 @@ class MonitorClient {
         }
     }
 
+    // 用户自己的 try-catch 里就能调：client.captureError(err)。
+    captureError(error) {
+        this.capture({
+            type: 'error',
+            subType: 'manual',
+            timestamp: Date.now(),
+            data: {
+                message: error?.message,
+                stack: error?.stack,
+            },
+        });
+    }
+
     /* start() 要做四件事：
   1. 注册三个默认中间件（Filter、Sampling、Enrichment）
   2. 创建 Transport 实例
