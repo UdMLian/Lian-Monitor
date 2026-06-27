@@ -29,10 +29,10 @@ class Transport {
 
     //立即上报（错误专用）：beacon → fetch → image，不走队列
     sendImmediate(event) {
-        const data = JSON.stringify([event])
-        if (this._sendByBeacon(data)) return
-        this._sendByFetch(data).catch(() => {
-            this._sendByImage(data)
+        const payload = JSON.stringify({ events: [event] })
+        if (this._sendByBeacon(payload)) return
+        this._sendByFetch(payload).catch(() => {
+            this._sendByImage(payload)
         })
     }
 
@@ -44,8 +44,8 @@ class Transport {
             clearTimeout(this.timer)
             this.timer = null
         }
-        const data = JSON.stringify(batch)
-        this._deliver(data)
+        const payload = JSON.stringify({ events: batch })
+        this._deliver(payload)
     }
 
     //发送请求
@@ -100,7 +100,7 @@ class Transport {
     _sendByBeacon(data) {
         const body = JSON.stringify({
             ...this.reportFields,
-            events: JSON.parse(data)
+            ...JSON.parse(data)
         })
         const blob = new Blob([body], { type: 'application/json' })
         if (navigator.sendBeacon) {
