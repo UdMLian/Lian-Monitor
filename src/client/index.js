@@ -244,6 +244,16 @@ class MonitorClient {
         });
     }
 
+    // 用户手动记录自定义面包屑
+    addBreadcrumb(message, data, level = 'info') {
+        this.scope.addBreadcrumb({
+            category: 'custom',
+            level,
+            data: { message, ...data },
+        });
+        return this;
+    }
+
     //三个默认中间件
     //判断这个事件该不该被处理。返回 null = 丢弃，返回 event = 放行
     _filter(event) {
