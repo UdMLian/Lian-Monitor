@@ -38,6 +38,20 @@ const errorCollector = {
     window.onerror = this._onError;
     window.addEventListener('error', this._onResourceError, true);
     window.addEventListener('unhandledrejection', this._onRejection);
+
+    // console.error 劫持：很多库 try-catch 后 console.error(err)，劫持能抓到这些
+    this._originalConsoleError = console.error;
+    console.error = (...args) => {
+      for (const arg of args) {
+        if (arg instanceof Error) {
+          this._capture('console', {
+            message: arg.message,
+            stack: arg.stack,
+          });
+        }
+      }
+      this._originalConsoleError.apply(console, args);
+    };
   },
 
   //移除监听
@@ -45,6 +59,9 @@ const errorCollector = {
     window.onerror = this._originalOnError;
     window.removeEventListener('error', this._onResourceError, true);
     window.removeEventListener('unhandledrejection', this._onRejection);
+    if (this._originalConsoleError) {
+      console.error = this._originalConsoleError;
+    }
   },
 
   // 内部：统一构建 event 并交给 client                                                                                   
