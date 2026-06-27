@@ -9,8 +9,10 @@ class Scope {
 
   addBreadcrumb(breadcrumb) {
     this.breadcrumbs.push({
+      type: 'default',
+      level: 'info',
+      timestamp: Date.now() / 1000,
       ...breadcrumb,
-      timestamp: Date.now(),
     });
     if (this.breadcrumbs.length > this.maxBreadcrumbs) {
       this.breadcrumbs.shift();
