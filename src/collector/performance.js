@@ -86,15 +86,19 @@ const performanceCollector = {
     this._longTaskObserver.observe({ type: 'longtask', buffered: true });
   },
 
-  // 内存：Chrome 专有，定期采样
+  // 内存：Chrome 专有，定期采样。最多采 10 次后停止，防止长生命周期 SPA 无限运行
   _setupMemory() {
     if (!window.performance?.memory) return;
+
+    this._memoryCount = 0;
+    this._memoryMaxSamples = 10;
 
     this._capture('memory', {
       usedJSHeapSize: performance.memory.usedJSHeapSize,
       totalJSHeapSize: performance.memory.totalJSHeapSize,
       jsHeapSizeLimit: performance.memory.jsHeapSizeLimit,
     });
+    this._memoryCount++;
 
     this._memoryTimer = setInterval(() => {
       this._capture('memory', {
@@ -102,7 +106,11 @@ const performanceCollector = {
         totalJSHeapSize: performance.memory.totalJSHeapSize,
         jsHeapSizeLimit: performance.memory.jsHeapSizeLimit,
       });
-    }, 30000);
+      this._memoryCount++;
+      if (this._memoryCount >= this._memoryMaxSamples) {
+        clearInterval(this._memoryTimer);
+      }
+    }, 60000);
   },
 
   // Web Vitals：LCP / FCP / CLS / TTFB / INP
