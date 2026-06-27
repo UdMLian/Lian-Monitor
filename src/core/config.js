@@ -27,8 +27,8 @@ export default {
   retryCount: 3,
   //重试基础延迟
   retryDelay: 1000,
-  //上报方式
-  reportMethod: 'fetch',
+  // 自定义上报字段，fetch 走 header，beacon 走 body，image 走 URL 参数
+  reportFields: {},
   error: {
     enabled: true,
     sampleRate: 1,            // 错误 100% 采集
