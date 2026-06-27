@@ -34,6 +34,13 @@ const rrwebPlugin = {
                     mousemove: false,
                     // 滚动事件节流 150ms
                     scroll: 150,
+                },
+                //脱敏配置
+                maskAllInputs: true,
+                maskTextClass: 'rr-mask',
+                blockClass: 'rr-block',
+                maskInputOptions: {
+                    password: true
                 }
             })
         } catch (e) {
