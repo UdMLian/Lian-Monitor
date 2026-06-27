@@ -216,6 +216,17 @@ class MonitorClient {
     _filter(event) {
         const typeConfig = this.options[event.type];
         if (typeConfig && typeConfig.enabled === false) return null;
+
+        // 忽略指定错误：字符串精确匹配或正则
+        if (event.type === 'error') {
+            const ignoreErrors = this.options.ignoreErrors || [];
+            const message = event.data?.message || '';
+            for (const pattern of ignoreErrors) {
+                if (typeof pattern === 'string' && message === pattern) return null;
+                if (pattern instanceof RegExp && pattern.test(message)) return null;
+            }
+        }
+
         return event;
     }
 

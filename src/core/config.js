@@ -18,6 +18,8 @@ export default {
   - 返回 null 丢弃这个事件（比如"这种错误我不关心"）
    */
   beforeSend: null,
+  // 忽略指定错误消息：字符串精确匹配或正则，如 ['Script error', /ResizeObserver/]
+  ignoreErrors: [],
   //批量上报数量
   batchSize: 5,
   //批量上报时间限制
