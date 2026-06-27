@@ -219,11 +219,21 @@ class MonitorClient {
         return event;
     }
 
+    // userId + type → 0~1 固定值。同用户同类型永远同结果，采样稳定可复现
+    _sample(type) {
+        const seed = (this.scope.userId || this.sessionId) + '_' + type;
+        let hash = 0;
+        for (let i = 0; i < seed.length; i++) {
+            hash = ((hash << 5) - hash + seed.charCodeAt(i)) | 0;
+        }
+        return (Math.abs(hash) % 10000) / 10000;
+    }
+
     //采样：先查该类型的独立采样率，没有就用全局
     _sampling(event) {
         const typeConfig = this.options[event.type];
         const rate = typeConfig?.sampleRate ?? this.options.sampleRate;
-        if (Math.random() > rate) return null;
+        if (this._sample(event.type) > rate) return null;
         return event;
     }
 
