@@ -86,6 +86,9 @@ class MonitorClient {
         // SDK 没在运行，不处理
         if (this.state !== 'running') return
 
+        event.event_id = this._generateId()
+        this._lastEventId = event.event_id
+
         let current = event
         for (const fn of this.pipeline) {
             try {
@@ -211,17 +214,27 @@ class MonitorClient {
         return this;
     }
 
+    _generateId() {
+        if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+            return crypto.randomUUID();
+        }
+        return 'evt_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+    }
+
+    lastEventId() {
+        return this._lastEventId;
+    }
+
     //三个默认中间件
     //判断这个事件该不该被处理。返回 null = 丢弃，返回 event = 放行
     _filter(event) {
         const typeConfig = this.options[event.type];
         if (typeConfig && typeConfig.enabled === false) return null;
 
-        // 忽略指定错误：字符串精确匹配或正则
         if (event.type === 'error') {
-            const ignoreErrors = this.options.ignoreErrors || [];
-            const message = event.data?.message || '';
-            for (const pattern of ignoreErrors) {
+            const ignoreErrors = this.options.ignoreErrors || []
+            const message = event.data?.message || ''
+            for (let pattern of ignoreErrors) {
                 if (typeof pattern === 'string' && message === pattern) return null;
                 if (pattern instanceof RegExp && pattern.test(message)) return null;
             }
