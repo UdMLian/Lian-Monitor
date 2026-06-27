@@ -46,6 +46,17 @@ const errorCollector = {
 
   // 内部：统一构建 event 并交给 client                                                                                   
   _capture(type, data) {
+    if (!this._recentErrors) this._recentErrors = new Set();
+    const key = `${type}|${data.message}|${data.source || ''}|${data.lineno || ''}`;
+    if (this._recentErrors.has(key)) return;
+    this._recentErrors.add(key);
+
+    //防止set无限增长
+    if (this._recentErrors.size > 50) {
+      const entries = Array.from(this._recentErrors);
+      this._recentErrors = new Set(entries.slice(-25));
+    }
+
     this.client.capture({
       type: 'error',
       subType: type,

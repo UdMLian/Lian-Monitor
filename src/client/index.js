@@ -145,6 +145,11 @@ class MonitorClient {
         }
         // 4. 开工
         this.state = 'running';
+
+        this._onPageHide = () => {
+            if (this.transport) this.transport.destroy()
+        }
+        window.addEventListener('pagehide', this._onPageHide)
     }
 
     destroy() {
@@ -174,6 +179,8 @@ class MonitorClient {
         if (this.transport) {
             this.transport.destroy();
         }
+
+        window.removeEventListener('pagehide', this._onPageHide)
 
         this.state = 'destroyed';
         return this;
