@@ -52,8 +52,14 @@ class Transport {
     async _deliver(data) {
         const response = await this._sendByFetch(data)
         if (response && response.ok) return
+        // 4xx（429 除外）是客户端错误，重试没有意义，直接丢弃
+        if (response && this._isClientError(response.status)) return
         if (this._sendByBeacon(data)) return
         this._retry(data, 1)
+    }
+
+    _isClientError(status) {
+        return status >= 400 && status < 500 && status !== 429;
     }
 
     _sendByImage(data) {
@@ -113,6 +119,8 @@ class Transport {
 
         const response = await this._sendByFetch(data);
         if (response && response.ok) return;
+        // 4xx（429 除外）不重试
+        if (response && this._isClientError(response.status)) return;
         if (this._sendByBeacon(data)) return;
 
         //做最后一次重试
