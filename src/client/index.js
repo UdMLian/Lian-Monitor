@@ -348,6 +348,7 @@ class MonitorClient {
             }
             return null;
         }
+        // 有了 _sampled: true + sample_rate: 0.5，事件自带"身份证明"——看一眼就知道这条是通过了 50% 采样进来的。
         event._sampled = true;
         event.sample_rate = rate;
         return event;
