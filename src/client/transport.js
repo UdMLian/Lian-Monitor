@@ -9,10 +9,15 @@ class Transport {
         this.retryCount = options.retryCount
         this.retryDelay = options.retryDelay
         this.reportFields = options.reportFields || {}
+        this.maxQueueSize = options.maxQueueSize || 50
     }
 
     //外部调用，收集外部传入内容并发出
     send(event) {
+        // 队列溢出保护：超过上限丢弃最旧的事件
+        while (this.queue.length >= this.maxQueueSize) {
+            this.queue.shift()
+        }
         this.queue.push(event)
         if (this.queue.length >= this.batchSize) {
             this._flush()
