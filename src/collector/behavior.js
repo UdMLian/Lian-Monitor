@@ -283,7 +283,7 @@ const behaviorCollector = {
     return null;
   },
 
-  // DOM 序列化：生成类似 <button.btn.primary[type=submit]> 的 HTML 描述串
+  // DOM 序列化：只捕获结构信息（标签、id、class、关键属性名），不含文本内容和 URL 参数
   _serializeElement(element) {
     if (!element || element === document.body) return null;
     try {
@@ -294,18 +294,27 @@ const behaviorCollector = {
         const cls = element.className.trim();
         if (cls) html += `.${cls.split(/\s+/).join('.')}`;
       }
-      // 关键属性（不包含 data-* 和 aria-*，太冗长）
-      const attrs = ['type', 'name', 'placeholder', 'href', 'src', 'alt', 'title', 'role'];
+      // 只记录属性名，不记录值（href/src 去查询参数后截断）
+      const attrs = ['type', 'name', 'placeholder', 'alt', 'title', 'role'];
       for (const attr of attrs) {
         const val = element.getAttribute(attr);
-        if (val) html += `[${attr}="${val.substring(0, 50)}"]`;
+        if (val) html += `[${attr}="${val.substring(0, 20)}"]`;
       }
-      // 文本内容（截断）
-      const text = (element.textContent || '').trim().substring(0, 80);
+      // href/src 去查询参数和 hash
+      for (const attr of ['href', 'src']) {
+        let val = element.getAttribute(attr);
+        if (val) {
+          try {
+            const u = new URL(val, location.origin);
+            val = u.origin + u.pathname;
+          } catch { /* 非标准 URL，直接用 */ }
+          html += `[${attr}="${val.substring(0, 80)}"]`;
+        }
+      }
       html += '>';
-      if (text) html += text;
+      // 不捕获 textContent：可能包含用户敏感信息
       html += `</${tag}>`;
-      if (html.length > 1024) html = html.substring(0, 1021) + '...';
+      if (html.length > 512) html = html.substring(0, 509) + '...';
       return html;
     } catch {
       return null;
