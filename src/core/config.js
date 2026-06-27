@@ -1,8 +1,12 @@
 export default {
   //上报地址
   dsn: '',
-  //应用标识，上报后台用于区分不同项目     
+  //应用标识，上报后台用于区分不同项目
   appKey: '',
+  // 版本号，用于 sourcemap 定位 & 错误归因
+  release: '',
+  // 环境标识：production / staging / development
+  environment: '',
   //全局采样率,这个定义一个可以吗，因为关于数据采样后续我还会进行精细的设计，但是我现在不知道怎么设计，我只希望先写好一个框架，然后往里面慢慢填充内容
   sampleRate: 1,
   //开启后 console 输出内部日志

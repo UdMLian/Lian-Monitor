@@ -225,6 +225,8 @@ class MonitorClient {
         // 通用：每个事件都带上
         event.sessionId = this.sessionId;
         event.pageUrl = window.location.href;
+        if (this.options.release) event.release = this.options.release;
+        if (this.options.environment) event.environment = this.options.environment;
 
         // 用户信息
         if (this.scope.userId) {
