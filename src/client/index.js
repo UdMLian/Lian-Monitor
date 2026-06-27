@@ -296,8 +296,60 @@ class MonitorClient {
     //采样：先查该类型的独立采样率，没有就用全局
     _sampling(event) {
         const typeConfig = this.options[event.type];
+
+        const sampler = typeConfig?.sampler ?? this.options.sampler
+        if (typeof sampler === 'function') {
+            const ctx = {
+                type: event.type,
+                subType: event.subType || '',
+                url: window.location.href,
+                data: event.data
+            }
+            const result = sampler(ctx)
+            if (result === false) {
+                // 明确丢弃
+                if (this.options.debug) {
+                    console.log(`[Monitor] Event dropped by sampler: type=${event.type}`);
+                }
+                return null;
+            }
+            if (result === true) {
+                event._sampled = true
+                event.sample_rate = 'sampler'
+                return event
+            }
+
+
+            if (typeof result === 'number') {
+                // 返回采样率数字，跟 hash 比较
+                const rate = Math.max(0, Math.min(1, result));
+                if (this._sample(event.type) > rate) {
+                    if (this.options.debug) {
+                        console.log(`[Monitor] Event dropped by sampler: type=${event.type}, rate=${rate}`);
+                    }
+                    return null;
+                }
+                event._sampled = true;
+                event.sample_rate = rate;
+                return event;
+            }
+
+            // 返回值不明确，默认放行
+            event._sampled = true;
+            event.sample_rate = 'sampler';
+            return event;
+        }
+
+        // 2. 静态数字采样率（fallback）
         const rate = typeConfig?.sampleRate ?? this.options.sampleRate;
-        if (this._sample(event.type) > rate) return null;
+        if (this._sample(event.type) > rate) {
+            if (this.options.debug) {
+                console.log(`[Monitor] Event dropped by sampling: type=${event.type}, rate=${rate}`);
+            }
+            return null;
+        }
+        event._sampled = true;
+        event.sample_rate = rate;
         return event;
     }
 

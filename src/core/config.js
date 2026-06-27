@@ -38,15 +38,18 @@ export default {
   error: {
     enabled: true,
     sampleRate: 1,            // 错误 100% 采集
+    sampler: null,
   },
   performance: {
     enabled: true,
-    sampleRate: 0.5,          // 性能 50% 采集
+    sampleRate: 0.5,// 性能 50% 采集
+    sampler: null,
   },
   behavior: {
     enabled: true,
     sampleRate: 0.3,          // 行为 30% 采集
     maxBreadcrumbs: 20,
     captureConsole: true,     // 是否拦截 console.log/warn/error → breadcrumb
+    sampler: null,
   },
 }
