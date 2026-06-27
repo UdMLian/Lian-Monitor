@@ -32,7 +32,7 @@ class MonitorClient {
         // Session 持久化：同一会话内页面刷新不产生新 sessionId
         this.sessionId = this._getOrCreateSessionId();
         // Scope：存储面包屑、用户信息，与 Collector 解耦
-        this.scope = new Scope();
+        this.scope = new Scope(this.options.behavior?.maxBreadcrumbs ?? 20);
     }
 
     getScope() {

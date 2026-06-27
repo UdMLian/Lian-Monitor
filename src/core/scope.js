@@ -1,7 +1,7 @@
 class Scope {
-  constructor() {
+  constructor(maxBreadcrumbs = 20) {
     this.breadcrumbs = [];
-    this.maxBreadcrumbs = 20;
+    this.maxBreadcrumbs = maxBreadcrumbs;
     this.userId = null;
     this.userData = {};
     this.tags = {};
