@@ -369,12 +369,22 @@ const behaviorCollector = {
       const target = event.target;
       if (!target) return;
 
-      // 跳过密码框
-      if (target.tagName === 'INPUT' && target.type === 'password') return;
+      // 跳过所有输入型元素（防止泄露用户输入）
+      const tag = target.tagName;
+      if (
+        tag === 'INPUT' ||
+        tag === 'TEXTAREA' ||
+        tag === 'SELECT' ||
+        target.isContentEditable
+      ) return;
 
-      // 跳过修饰键单独按下
-      const modKeys = ['Shift', 'Control', 'Alt', 'Meta', 'CapsLock', 'Tab'];
-      if (modKeys.includes(event.key)) return;
+      // 只捕获导航/操作键，不捕获可打印字符
+      const actionKeys = [
+        'Enter', 'Escape', 'Backspace', 'Delete',
+        'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight',
+        'Home', 'End', 'PageUp', 'PageDown',
+      ];
+      if (!actionKeys.includes(event.key)) return;
 
       this.addBreadcrumb('ui.keypress', {
         key: event.key,
