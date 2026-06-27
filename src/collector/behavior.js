@@ -344,6 +344,7 @@ const behaviorCollector = {
         // 先调原始方法，保留控制台输出
         original.apply(console, args);
 
+        //console.log 的参数可能包含敏感数据，直接原样上报 = 泄露
         const serialized = Array.from(args).map(arg => self._sanitizeArg(arg));
 
         const breadcrumbLevel = method === 'log' ? 'log' : method === 'warn' ? 'warning' : 'error';
@@ -438,6 +439,8 @@ const behaviorCollector = {
       this.addBreadcrumb('ui.keypress', {
         key: event.key,
         tagName: target.tagName.toLowerCase(),
+        selector: this._getSelector(target),
+        html: this._serializeElement(target),
         id: target.id || undefined,
       });
     };
