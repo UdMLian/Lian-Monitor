@@ -8,7 +8,9 @@ const behaviorCollector = {
     this._setupRoute();
     this._setupXHR();
     this._setupFetch();
-    this._setupPageView()
+    this._setupPageView();
+    this._setupConsole();
+    this._setupKeypress();
   },
 
   teardown() {
@@ -16,7 +18,9 @@ const behaviorCollector = {
     this._teardownRoute();
     this._teardownXHR();
     this._teardownFetch();
-    this._teardownPageView()
+    this._teardownPageView();
+    this._teardownConsole();
+    this._teardownKeypress();
   },
 
   // ── 点击监听 ──────────────────────────────────────────────
@@ -26,9 +30,10 @@ const behaviorCollector = {
       const target = event.target;
       if (!target || target === document.body) return;
 
-      this.addBreadcrumb('click', {
+      this.addBreadcrumb('ui.click', {
         tagName: target.tagName.toLowerCase(),
         selector: this._getSelector(target),
+        html: this._serializeElement(target),
         id: target.id || undefined,
         className: target.className || undefined,
       });
@@ -54,7 +59,7 @@ const behaviorCollector = {
       const result = self._originalPushState.apply(this, args);
       const url = args[2];
       if (url) {
-        self.addBreadcrumb('route', {
+        self.addBreadcrumb('navigation.route', {
           from: self._lastHref,
           to: String(url),
           method: 'pushState',
@@ -68,7 +73,7 @@ const behaviorCollector = {
       const result = self._originalReplaceState.apply(this, args);
       const url = args[2];
       if (url) {
-        self.addBreadcrumb('route', {
+        self.addBreadcrumb('navigation.route', {
           from: self._lastHref,
           to: String(url),
           method: 'replaceState',
@@ -81,13 +86,13 @@ const behaviorCollector = {
     // popstate / hashchange
     this._onPopState = () => {
       const to = location.href;
-      this.addBreadcrumb('route', { from: this._lastHref, to, method: 'popstate' });
+      this.addBreadcrumb('navigation.route', { from: this._lastHref, to, method: 'popstate' });
       this._lastHref = to;
     };
 
     this._onHashChange = () => {
       const to = location.href;
-      this.addBreadcrumb('route', { from: this._lastHref, to, method: 'hashchange' });
+      this.addBreadcrumb('navigation.route', { from: this._lastHref, to, method: 'hashchange' });
       this._lastHref = to;
     };
 
@@ -139,7 +144,7 @@ const behaviorCollector = {
         this.removeEventListener('loadend', monitor._loadendHandler);
       }
       monitor._loadendHandler = () => {
-        self.addBreadcrumb('xhr', {
+        self.addBreadcrumb('http.xhr', {
           method: monitor.method,
           url: monitor.url,
           status: this.status,
@@ -177,7 +182,7 @@ const behaviorCollector = {
 
       try {
         const response = await self._originalFetch(input, init);
-        self.addBreadcrumb('fetch', {
+        self.addBreadcrumb('http.fetch', {
           method,
           url: String(url),
           status: response.status,
@@ -185,7 +190,7 @@ const behaviorCollector = {
         });
         return response;
       } catch (err) {
-        self.addBreadcrumb('fetch', {
+        self.addBreadcrumb('http.fetch', {
           method,
           url: String(url),
           error: true,
@@ -204,7 +209,7 @@ const behaviorCollector = {
 
   _setupPageView() {
     this._pageEntryTime = Date.now()
-    this.addBreadcrumb('page-enter', {
+    this.addBreadcrumb('navigation.page-enter', {
       url: location.href,
       referrer: document.referrer || undefined
     })
@@ -212,7 +217,7 @@ const behaviorCollector = {
     // 页面离开时记录停留时长。用 pagehide 而非 beforeunload：
     // beforeunload 在移动端不可靠，pagehide 总是触发
     this._onPageHide = () => {
-      this.addBreadcrumb('page-leave', {
+      this.addBreadcrumb('navigation.page-leave', {
         url: location.href,
         duration: Date.now() - this._pageEntryTime,
       });
@@ -278,8 +283,114 @@ const behaviorCollector = {
     return null;
   },
 
-  addBreadcrumb(type, data) {
-    this.client.getScope().addBreadcrumb({ type, ...data });
+  // DOM 序列化：生成类似 <button.btn.primary[type=submit]> 的 HTML 描述串
+  _serializeElement(element) {
+    if (!element || element === document.body) return null;
+    try {
+      const tag = element.tagName.toLowerCase();
+      let html = `<${tag}`;
+      if (element.id) html += `#${element.id}`;
+      if (element.className && typeof element.className === 'string') {
+        const cls = element.className.trim();
+        if (cls) html += `.${cls.split(/\s+/).join('.')}`;
+      }
+      // 关键属性（不包含 data-* 和 aria-*，太冗长）
+      const attrs = ['type', 'name', 'placeholder', 'href', 'src', 'alt', 'title', 'role'];
+      for (const attr of attrs) {
+        const val = element.getAttribute(attr);
+        if (val) html += `[${attr}="${val.substring(0, 50)}"]`;
+      }
+      // 文本内容（截断）
+      const text = (element.textContent || '').trim().substring(0, 80);
+      html += '>';
+      if (text) html += text;
+      html += `</${tag}>`;
+      if (html.length > 1024) html = html.substring(0, 1021) + '...';
+      return html;
+    } catch {
+      return null;
+    }
+  },
+
+  // ── Console 拦截（breadcrumb） ─────────────────────────────
+
+  _setupConsole() {
+    if (!window.console) return;
+    const self = this;
+    const levels = ['log', 'warn', 'error'];
+
+    for (const method of levels) {
+      const original = console[method];
+      if (typeof original !== 'function') continue;
+
+      // 保存原始引用（console.error 可能已被 error collector 包装过，
+      // 这里存的是"当前版本"，teardown 时按条件恢复）
+      this['_originalConsole_' + method] = original;
+
+      const wrapper = function (...args) {
+        // 先调原始方法，保留控制台输出
+        original.apply(console, args);
+
+        const serialized = Array.from(args).map(arg => {
+          if (arg instanceof Error) return arg.message + '\n' + (arg.stack || '');
+          if (typeof arg === 'object') {
+            try { return JSON.parse(JSON.stringify(arg)); } catch { return String(arg); }
+          }
+          return String(arg);
+        });
+
+        const breadcrumbLevel = method === 'log' ? 'log' : method === 'warn' ? 'warning' : 'error';
+        self.addBreadcrumb('console', {
+          level: method,
+          args: serialized,
+        }, breadcrumbLevel);
+      };
+      this['_consoleWrapper_' + method] = wrapper;
+      console[method] = wrapper;
+    }
+  },
+
+  _teardownConsole() {
+    for (const method of ['log', 'warn', 'error']) {
+      const wrapper = this['_consoleWrapper_' + method];
+      const savedOriginal = this['_originalConsole_' + method];
+      // 只在当前 console[method] 仍是自己的 wrapper 时才恢复。
+      // 如果 error collector 先 teardown 已还原，这里不覆盖。
+      if (wrapper && savedOriginal && console[method] === wrapper) {
+        console[method] = savedOriginal;
+      }
+    }
+  },
+
+  // ── 键盘监听 ──────────────────────────────────────────────
+
+  _setupKeypress() {
+    this._onKeydown = (event) => {
+      const target = event.target;
+      if (!target) return;
+
+      // 跳过密码框
+      if (target.tagName === 'INPUT' && target.type === 'password') return;
+
+      // 跳过修饰键单独按下
+      const modKeys = ['Shift', 'Control', 'Alt', 'Meta', 'CapsLock', 'Tab'];
+      if (modKeys.includes(event.key)) return;
+
+      this.addBreadcrumb('ui.keypress', {
+        key: event.key,
+        tagName: target.tagName.toLowerCase(),
+        id: target.id || undefined,
+      });
+    };
+    document.addEventListener('keydown', this._onKeydown, true);
+  },
+
+  _teardownKeypress() {
+    document.removeEventListener('keydown', this._onKeydown, true);
+  },
+
+  addBreadcrumb(category, data, level = 'info') {
+    this.client.getScope().addBreadcrumb({ category, level, data });
   },
 };
 
