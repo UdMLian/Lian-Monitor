@@ -37,11 +37,11 @@ const rrwebPlugin = {
                 },
                 //脱敏配置
                 maskAllInputs: true,
-                maskTextClass: 'rr-mask',
-                blockClass: 'rr-block',
+                maskTextClass: 'rr-mask',     // class="rr-mask" 的文本变 ***
+                blockClass: 'rr-block',        // class="rr-block" 的整个元素遮挡
                 maskInputOptions: {
-                    password: true
-                }
+                    password: true,               // 密码始终遮蔽（默认）
+                },
             })
         } catch (e) {
 
