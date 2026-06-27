@@ -33,6 +33,11 @@ class Scope {
   setTag(key, value) {
     this.tags[key] = value;
   }
+
+  setExtra(key, value) {
+    if (!this.extras) this.extras = {};
+    this.extras[key] = value;
+  }
 }
 
 export default Scope;

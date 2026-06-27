@@ -225,6 +225,25 @@ class MonitorClient {
         return this._lastEventId;
     }
 
+    setTag(key, value) {
+        this.scope.setTag(key, value);
+        return this;
+    }
+
+    setExtra(key, value) {
+        this.scope.setExtra(key, value);
+        return this;
+    }
+
+    captureMessage(message, level = 'info') {
+        this.capture({
+            type: 'message',
+            subType: level,
+            timestamp: Date.now(),
+            data: { message },
+        });
+    }
+
     //三个默认中间件
     //判断这个事件该不该被处理。返回 null = 丢弃，返回 event = 放行
     _filter(event) {
@@ -289,6 +308,14 @@ class MonitorClient {
         // 用户信息
         if (this.scope.userId) {
             event.userId = this.scope.userId;
+        }
+
+        // 标签 & 额外上下文
+        if (this.scope.tags && Object.keys(this.scope.tags).length > 0) {
+            event.tags = { ...this.scope.tags };
+        }
+        if (this.scope.extras && Object.keys(this.scope.extras).length > 0) {
+            event.extras = { ...this.scope.extras };
         }
 
         // 错误事件：从 Scope 取面包屑，不直接依赖 BehaviorCollector
