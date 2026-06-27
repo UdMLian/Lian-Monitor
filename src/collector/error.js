@@ -12,6 +12,9 @@ const errorCollector = {
     // 绑定 this，拿到函数引用后才能正确 removeEventListener
     this._onError = (message, source, lineno, colno, error) => {
       this._capture('js', { message, source, lineno, colno, stack: error?.stack });
+      if (typeof this._originalOnError === 'function') {
+        this._originalOnError.call(window, message, source, lineno, colno, error);
+      }
     };
 
     this._onResourceError = (event) => {
