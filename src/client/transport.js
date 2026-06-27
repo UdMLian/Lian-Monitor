@@ -8,6 +8,7 @@ class Transport {
         this.timer = null
         this.retryCount = options.retryCount
         this.retryDelay = options.retryDelay
+        this.reportFields = options.reportFields || {}
     }
 
     //外部调用，收集外部传入内容并发出
@@ -51,19 +52,25 @@ class Transport {
     }
 
     _sendByImage(data) {
+        const params = new URLSearchParams()
+        for (const [key, value] of Object.entries(this.reportFields)) {
+            params.set(key, value);
+        }
+        params.set('data', data);
         const img = new Image()
-        const encoded = encodeURIComponent(data)
-        img.src = `${this.url}?data=${encoded}`
+        img.src = `${this.url}?${params.toString()}`
         return
     }
 
     async _sendByFetch(data) {
         try {
+            const headers = { 'Content-Type': 'application/json' }
+            for (const [key, value] of Object.entries(this.reportFields)) {
+                headers[key] = value
+            }
             const response = await fetch(this.url, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
+                headers,
                 body: data,
             });
             return response
@@ -80,7 +87,11 @@ class Transport {
    */
 
     _sendByBeacon(data) {
-        const blob = new Blob([data], { type: 'application/json' })
+        const body = JSON.stringify({
+            ...this.reportFields,
+            events: JSON.parse(data)
+        })
+        const blob = new Blob([body], { type: 'application/json' })
         if (navigator.sendBeacon) {
             return navigator.sendBeacon(this.url, blob);
         }
