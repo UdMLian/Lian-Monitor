@@ -7,10 +7,10 @@ const rrwebPlugin = {
         this._maxEvents = 80
 
         // 通过 middleware 把录屏数据附到错误事件上
+        // 不清空缓冲区：连续错误共享录屏数据（环形缓冲区自动淘汰旧数据）
         this._middleware = (event) => {
             if (event.type === 'error' && this._events.length > 0) {
                 event.rrweb = this._events.slice()
-                this._events = []
             }
             return event
         }
