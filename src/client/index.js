@@ -116,6 +116,8 @@ class MonitorClient {
    */
 
     start() {
+        // 防止重复调用：idle → running → destroyed 单向
+        if (this.state !== 'idle') return;
         // 1. 注册默认中间件
         this.use(this._filter.bind(this));
         this.use(this._sampling.bind(this));
