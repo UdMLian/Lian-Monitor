@@ -12,7 +12,7 @@ const performanceCollector = {
 
   setup(client) {
     this.client = client;
-
+    this._active = true;
     this._setupResourceTiming();
     this._setupLongTasks();
     this._setupMemory();
@@ -20,6 +20,7 @@ const performanceCollector = {
   },
 
   teardown() {
+    this._active = false;
     this._resourceObserver?.disconnect();
     this._longTaskObserver?.disconnect();
     if (this._memoryTimer) clearInterval(this._memoryTimer);
@@ -109,7 +110,12 @@ const performanceCollector = {
     try {
       const { onLCP, onFCP, onCLS, onTTFB, onINP } = await import('web-vitals');
 
+
+      // 异步竞态：import 完成前 teardown 被调了，不再注册                                                                  
+      if (!this._active) return;  // ← 加这行    
+
       const handler = (metric) => {
+        if (!this._active) return;  // ← 加这行（双层防护）
         this._capture('web-vital', {
           name: metric.name,
           value: metric.value,
