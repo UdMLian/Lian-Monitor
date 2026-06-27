@@ -21,6 +21,15 @@ class Transport {
         }
     }
 
+    //立即上报（错误专用）：beacon → fetch → image，不走队列
+    sendImmediate(event) {
+        const data = JSON.stringify([event])
+        if (this._sendByBeacon(data)) return
+        this._sendByFetch(data).catch(() => {
+            this._sendByImage(data)
+        })
+    }
+
     //内部真正发出的部分
     _flush() {
         const batch = this.queue.splice(0, this.batchSize)
@@ -63,6 +72,12 @@ class Transport {
             return null
         }
     }
+
+    /*  navigator.sendBeacon(url, blob)  // → true  |  false
+
+  - true — 浏览器成功入队了（不保证送达，但保证会尝试）
+  - false — 入队失败（URL 不对、数据太大、浏览器关闭中等）
+   */
 
     _sendByBeacon(data) {
         const blob = new Blob([data], { type: 'application/json' })

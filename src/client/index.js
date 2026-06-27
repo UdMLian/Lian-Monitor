@@ -101,7 +101,11 @@ class MonitorClient {
         }
         /* event → [Filter] → [Sampling] → [Enrichment] → [beforeSend] → transport.send()
         每个中间件返回 null 就中断 */
-        this.transport.send(current)
+        if (current.type === 'error') {
+            this.transport.sendImmediate(current);
+        } else {
+            this.transport.send(current);
+        }
     }
 
     /* start() 要做四件事：
