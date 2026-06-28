@@ -22,10 +22,14 @@
     "dev:example": "vite --config examples/vite.config.js",
     "build": "vite build",
     "preview:example": "vite preview --config examples/vite.config.js",
-    "mock:server": "node server/mock-report.mjs"
+    "mock:server": "node server/mock-report.mjs",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "devDependencies": {
-    "vite": "^7.0.0"
+    "jsdom": "^29.1.1",
+    "vite": "^7.0.0",
+    "vitest": "^4.1.9"
   },
   "dependencies": {
     "rrweb": "^2.0.0-alpha.4",
