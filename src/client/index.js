@@ -361,6 +361,18 @@ class MonitorClient {
         return 'info';
     }
 
+    // 从 stack 第一行提取错误类型（'TypeError: x is undefined' → 'TypeError'）
+    _errorType(event) {
+        const stack = event.data?.stack;
+        if (typeof stack === 'string') {
+            const firstLine = stack.split('\n')[0];
+            const match = firstLine.match(/^(\w+)(?::|\s|$)/);
+            if (match) return match[1];
+        }
+        const map = { js: 'Error', resource: 'ResourceError', promise: 'PromiseRejection', console: 'Error', manual: 'Error' };
+        return map[event.subType] || 'Error';
+    }
+
     //为事件附加上下文信息
     _enrichment(event) {
         // SDK 元数据
@@ -390,9 +402,18 @@ class MonitorClient {
             event.extras = { ...this.scope.extras };
         }
 
-        // 错误事件：从 Scope 取面包屑，不直接依赖 BehaviorCollector
+        // 错误事件：结构化 exception.values + 面包屑
         if (event.type === 'error') {
             event.breadcrumbs = this.scope.getBreadcrumbs();
+
+            event.exception = {
+                values: [{
+                    type: this._errorType(event),
+                    value: event.data?.message || '',
+                    stacktrace: event.data?.stack ? { frames: event.data.stack } : undefined,
+                }],
+            };
+            delete event.data;
         }
 
         return event;
