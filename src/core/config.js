@@ -78,6 +78,16 @@ export default {
     maskInputOptions: {
       password: true,             // 密码始终遮蔽
     },
+    maskTextSelector: null,       // CSS 选择器，匹配的文本节点脱敏，如 '[data-sensitive]'
+    blockSelector: null,          // CSS 选择器，匹配的元素整个遮挡
+    maskTextFn: null,             // (text) => string，自定义脱敏逻辑
+    slimDOMOptions: {             // 精简 DOM 减少录屏体积
+      script: true,               // 去掉 <script>
+      comment: true,              // 去掉注释节点
+      headFavicon: true,          // 去掉 favicon
+      headWhitespace: true,       // 去掉 <head> 空白
+    },
+    inlineImages: false,          // 不把图片转 base64（隐私 + 体积）
     recordCanvas: false,          // Canvas 录制（数据量大，默认关闭）
     recordCrossOriginIframes: false,
     inlineStylesheet: true,

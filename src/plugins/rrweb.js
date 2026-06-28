@@ -73,11 +73,22 @@ const rrwebPlugin = {
                 // 脱敏配置
                 maskAllInputs: cfg.maskAllInputs ?? true,
                 maskTextClass: cfg.maskTextClass || 'rr-mask',       // class="rr-mask" 的文本变 ***
+                maskTextSelector: cfg.maskTextSelector || undefined, // CSS 选择器匹配的文本脱敏
                 blockClass: cfg.blockClass || 'rr-block',            // class="rr-block" 的整个元素遮挡
+                blockSelector: cfg.blockSelector || undefined,       // CSS 选择器匹配的元素遮挡
+                maskTextFn: cfg.maskTextFn || undefined,             // 自定义脱敏函数
                 maskInputOptions: {
                     password: true,                                    // 密码始终遮蔽
                     ...(cfg.maskInputOptions || {}),
                 },
+                // 精简 DOM：去掉 script、注释等减小体积
+                slimDOMOptions: cfg.slimDOMOptions || {
+                    script: true,
+                    comment: true,
+                    headFavicon: true,
+                    headWhitespace: true,
+                },
+                inlineImages: cfg.inlineImages ?? false,             // 不嵌入图片 base64
                 recordCanvas: cfg.recordCanvas ?? false,
                 recordCrossOriginIframes: cfg.recordCrossOriginIframes ?? false,
                 inlineStylesheet: cfg.inlineStylesheet ?? true,
