@@ -3,6 +3,11 @@ import config from "../core/config.js";
 import Transport from './transport.js';
 import Scope from "../core/scope.js";
 import { filterEvent, sampleEvent, enrichEvent } from './middleware.js';
+import { getOrCreateSessionId, generateId, dedupKey } from './utils.js';
+import {
+  captureError, captureEvent, capturePerformance, captureMessage,
+  addBreadcrumb, setUserId, setTag, setExtra,
+} from './api.js';
 
 class MonitorClient {
     constructor(options = {}) {
@@ -32,7 +37,7 @@ class MonitorClient {
         // 当前状态
         this.state = 'idle';
         // Session 持久化：同一会话内页面刷新不产生新 sessionId
-        this.sessionId = this._getOrCreateSessionId();
+        this.sessionId = getOrCreateSessionId();
         // Scope：存储面包屑、用户信息，与 Collector 解耦
         this.scope = new Scope(this.options.behavior?.maxBreadcrumbs ?? 20);
         this._beforeBreadcrumb = this.options.behavior?.beforeBreadcrumb || null;
@@ -43,24 +48,6 @@ class MonitorClient {
 
     getScope() {
         return this.scope;
-    }
-
-    _getOrCreateSessionId() {
-        const key = 'monitor_session';
-        try {
-            let sessionId = sessionStorage.getItem(key);
-            if (sessionId) return sessionId;
-        } catch {
-            // sessionStorage 不可用（SSR、隐私模式、沙箱 iframe）
-        }
-
-        const sessionId = 'session_' + Date.now() + '_' + Math.random().toString(36).substring(2, 11);
-        try {
-            sessionStorage.setItem(key, sessionId);
-        } catch {
-            // 写入失败不阻塞
-        }
-        return sessionId;
     }
 
     /*
@@ -102,7 +89,7 @@ class MonitorClient {
 
         // 错误去重：相同 key 在窗口内只放行一次
         if (event.type === 'error') {
-            const key = this._dedupKey(event);
+            const key = dedupKey(event);
             const now = Date.now();
             const lastTime = this._dedupMap.get(key);
             if (lastTime && now - lastTime < this._dedupInterval) {
@@ -118,7 +105,7 @@ class MonitorClient {
             }
         }
 
-        event.event_id = this._generateId()
+        event.event_id = generateId()
         this._lastEventId = event.event_id
 
         let current = event
@@ -141,43 +128,6 @@ class MonitorClient {
         } else {
             this.transport.send(current);
         }
-    }
-
-    // 用户自己的 try-catch 里就能调：client.captureError(err)。
-    captureError(error, options = {}) {
-        this.capture({
-            type: 'error',
-            subType: 'manual',
-            timestamp: Date.now(),
-            fingerprint: 'fingerprint' in options ? options.fingerprint : undefined,
-            _manual: true,
-            data: {
-                message: error?.message,
-                stack: error?.stack,
-                ...(options.data || {}),
-            },
-        });
-    }
-
-    captureEvent(type, data, options = {}) {
-        this.capture({
-            type: 'custom',
-            subType: type,
-            timestamp: Date.now(),
-            fingerprint: 'fingerprint' in options ? options.fingerprint : undefined,
-            _manual: true,
-            data,
-        });
-    }
-
-    capturePerformance(name, data = {}) {
-        this.capture({
-            type: 'performance',
-            subType: 'custom',
-            timestamp: Date.now(),
-            _manual: true,
-            data: { name, ...data },
-        });
     }
 
     /* start() 要做四件事：
@@ -278,60 +228,8 @@ class MonitorClient {
         return this;
     }
 
-    //设置用户信息
-    setUserId(userId) {
-        this.scope.setUser(userId);
-        return this;
-    }
-
-    _generateId() {
-        try {
-            if (typeof globalThis.crypto !== 'undefined' && globalThis.crypto.randomUUID) {
-                return globalThis.crypto.randomUUID();
-            }
-        } catch {
-            // crypto 不可用
-        }
-        return 'evt_' + Date.now() + '_' + Math.random().toString(36).substring(2, 11);
-    }
-
-    _dedupKey(event) {
-        const msg = event.data?.message || '';
-        const stack = event.data?.stack || '';
-        const subType = event.subType || '';
-        const source = event.data?.source || '';
-        const lineno = event.data?.lineno ?? '';
-        const colno = event.data?.colno ?? '';
-
-        // 取 stack 前两帧做指纹（增加精度，减少误去重）
-        const frames = stack.split('\n').slice(1, 3).map(f => f.trim()).join('|');
-
-        return [subType, msg, source, lineno, colno, frames].join('@');
-    }
-
     lastEventId() {
         return this._lastEventId;
-    }
-
-    setTag(key, value) {
-        this.scope.setTag(key, value);
-        return this;
-    }
-
-    setExtra(key, value) {
-        this.scope.setExtra(key, value);
-        return this;
-    }
-
-    captureMessage(message, level = 'info', options = {}) {
-        this.capture({
-            type: 'message',
-            subType: level,
-            fingerprint: 'fingerprint' in options ? options.fingerprint : undefined,
-            timestamp: Date.now(),
-            data: { message },
-            _manual: true,
-        });
     }
 
     // 供 Collector 内部调用，自动应用 beforeBreadcrumb 钩子
@@ -339,14 +237,38 @@ class MonitorClient {
         this.scope.addBreadcrumb(breadcrumb, this._beforeBreadcrumb);
     }
 
-    // 用户手动记录自定义面包屑
-    addBreadcrumb(message, data, level = 'info') {
-        this.scope.addBreadcrumb({
-            category: 'custom',
-            level,
-            data: { message, ...data },
-        });
-        return this;
+    // ── 公开 API（委托到 api.js）──────────────────────────────
+
+    captureError(error, options) {
+        return captureError(this, error, options);
+    }
+
+    captureEvent(type, data, options) {
+        return captureEvent(this, type, data, options);
+    }
+
+    capturePerformance(name, data) {
+        return capturePerformance(this, name, data);
+    }
+
+    captureMessage(message, level, options) {
+        return captureMessage(this, message, level, options);
+    }
+
+    addBreadcrumb(message, data, level) {
+        return addBreadcrumb(this, message, data, level);
+    }
+
+    setUserId(userId) {
+        return setUserId(this, userId);
+    }
+
+    setTag(key, value) {
+        return setTag(this, key, value);
+    }
+
+    setExtra(key, value) {
+        return setExtra(this, key, value);
     }
 }
 
