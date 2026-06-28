@@ -121,11 +121,12 @@ class MonitorClient {
             subType: 'manual',
             timestamp: Date.now(),
             fingerprint: 'fingerprint' in options ? options.fingerprint : undefined,
+            _manual: true,
             data: {
                 message: error?.message,
                 stack: error?.stack,
+                ...(options.data || {}),
             },
-            _manual: true,
         });
     }
 

@@ -4,6 +4,9 @@ import errorCollector from './collector/error.js';
 import performanceCollector from './collector/performance.js';
 import behaviorCollector from './collector/behavior.js';
 import rrwebPlugin from './plugins/rrweb.js';
+import { createVuePlugin } from './frameworks/vue.js';
+import { createErrorBoundary } from './frameworks/react.js';
+import { createAngularErrorHandler } from './frameworks/angular.js';
 
 function init(options = {}) {
   const client = new MonitorClient(options);
@@ -15,5 +18,5 @@ function init(options = {}) {
   return client;
 }
 
-export { MonitorClient, init };
+export { MonitorClient, init, createVuePlugin, createErrorBoundary, createAngularErrorHandler };
 export default { MonitorClient, init };
