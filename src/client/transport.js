@@ -22,7 +22,15 @@ class Transport {
             this.queue.shift()
         }
         this.queue.push(event)
-        if (this._isRateLimited()) return;
+        // 限速到期后自动 flush，防止队列死等
+        if (this._isRateLimited()) {
+            const remaining = this._rateLimitUntil - Date.now();
+            if (remaining > 0) {
+                clearTimeout(this.timer);
+                this.timer = setTimeout(() => this._flush(), remaining);
+            }
+            return;
+        }
         if (this.queue.length >= this.batchSize) {
             this._flush()
         } else {
