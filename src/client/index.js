@@ -2,7 +2,7 @@
 import config from "../core/config.js";
 import Transport from './transport.js';
 import Scope from "../core/scope.js";
-import { getContexts } from "../core/contexts.js";
+import { filterEvent, sampleEvent, enrichEvent } from './middleware.js';
 
 class MonitorClient {
     constructor(options = {}) {
@@ -191,9 +191,9 @@ class MonitorClient {
         // 防止重复调用：idle → running → destroyed 单向
         if (this.state !== 'idle') return;
         // 1. 注册默认中间件
-        this.use(this._filter.bind(this));
-        this.use(this._sampling.bind(this));
-        this.use(this._enrichment.bind(this));
+        this.use((event) => filterEvent(this, event));
+        this.use((event) => sampleEvent(this, event));
+        this.use((event) => enrichEvent(this, event));
         // 2. 如果用户传了 beforeSend，也注册进去
         if (this.options.beforeSend) {
             this.use(this.options.beforeSend);
@@ -208,7 +208,7 @@ class MonitorClient {
                 if (this.options.debug) {
                     console.error(`[Monitor] Collector "${name}" setup failed:`, e);
                 }
-                // 继续启动其他的，不让一个采集器拖垮整个 SDK                                                                 
+                // 继续启动其他的，不让一个采集器拖垮整个 SDK
             }
         }
         //启动plugin
@@ -347,179 +347,6 @@ class MonitorClient {
             data: { message, ...data },
         });
         return this;
-    }
-
-    //三个默认中间件
-    //判断这个事件该不该被处理。返回 null = 丢弃，返回 event = 放行
-    _filter(event) {
-        const typeConfig = this.options[event.type];
-        if (typeConfig && typeConfig.enabled === false) return null;
-
-        if (event.type === 'error') {
-            const ignoreErrors = this.options.ignoreErrors || []
-            const message = event.data?.message || ''
-            for (let pattern of ignoreErrors) {
-                if (typeof pattern === 'string' && message === pattern) return null;
-                if (pattern instanceof RegExp && pattern.test(message)) return null;
-            }
-        }
-
-        return event;
-    }
-
-    // userId + type → 0~1 固定值。同用户同类型永远同结果，采样稳定可复现
-    _sample(type) {
-        const seed = (this.scope.userId || this.sessionId) + '_' + type;
-        let hash = 0;
-        for (let i = 0; i < seed.length; i++) {
-            hash = ((hash << 5) - hash + seed.charCodeAt(i)) | 0;
-        }
-        return (Math.abs(hash) % 10000) / 10000;
-    }
-
-    /*
-  ┌──────────────┬───────────────────┬───────────────────────────┐                                                          
-  │              │   Math.random()   │    hash(userId + type)    │                                                          
-  ├──────────────┼───────────────────┼───────────────────────────┤                                                          
-  │ 同用户同类型 │ 每次不同          │ 永远相同                  │                                                          
-  ├──────────────┼───────────────────┼───────────────────────────┤                                                          
-  │ 结果         │ 用户 A 数据碎片化 │ 用户 A 要么全采要么全不采 │                                                          
-  ├──────────────┼───────────────────┼───────────────────────────┤                                                          
-  │ 数据质量     │ 没法追踪单个用户  │ 单个用户数据完整连续      │                                                          
-  └──────────────┴───────────────────┴───────────────────────────┘         */
-
-    //采样：先查该类型的独立采样率，没有就用全局
-    _sampling(event) {
-        if (event._manual) {
-            event._sampled = true;
-            event.sample_rate = 'manual';
-            return event;
-        }
-
-        const typeConfig = this.options[event.type];
-
-        const sampler = typeConfig?.sampler ?? this.options.sampler
-        if (typeof sampler === 'function') {
-            const ctx = {
-                type: event.type,
-                subType: event.subType || '',
-                url: window.location.href,
-                data: event.data
-            }
-            const result = sampler(ctx)
-            if (result === false) {
-                // 明确丢弃
-                if (this.options.debug) {
-                    console.log(`[Monitor] Event dropped by sampler: type=${event.type}`);
-                }
-                return null;
-            }
-            if (result === true) {
-                event._sampled = true
-                event.sample_rate = 'sampler'
-                return event
-            }
-
-
-            if (typeof result === 'number') {
-                // 返回采样率数字，跟 hash 比较
-                const rate = Math.max(0, Math.min(1, result));
-                if (this._sample(event.type) > rate) {
-                    if (this.options.debug) {
-                        console.log(`[Monitor] Event dropped by sampler: type=${event.type}, rate=${rate}`);
-                    }
-                    return null;
-                }
-                event._sampled = true;
-                event.sample_rate = rate;
-                return event;
-            }
-
-            // 返回值不明确，默认放行
-            event._sampled = true;
-            event.sample_rate = 'sampler';
-            return event;
-        }
-
-        // 2. 静态数字采样率（fallback）
-        const rate = typeConfig?.sampleRate ?? this.options.sampleRate;
-        if (this._sample(event.type) > rate) {
-            if (this.options.debug) {
-                console.log(`[Monitor] Event dropped by sampling: type=${event.type}, rate=${rate}`);
-            }
-            return null;
-        }
-        // 有了 _sampled: true + sample_rate: 0.5，事件自带"身份证明"——看一眼就知道这条是通过了 50% 采样进来的。
-        event._sampled = true;
-        event.sample_rate = rate;
-        return event;
-    }
-    _inferLevel(event) {
-        if (event.type === 'error') return 'error';
-        if (event.type === 'message') return event.subType || 'info';  // 'info'/'warning'/'error'
-        return 'info';
-    }
-
-    // 从 stack 第一行提取错误类型（'TypeError: x is undefined' → 'TypeError'）
-    _errorType(event) {
-        const stack = event.data?.stack;
-        if (typeof stack === 'string') {
-            const firstLine = stack.split('\n')[0];
-            const match = firstLine.match(/^(\w+)(?::|\s|$)/);
-            if (match) return match[1];
-        }
-        const map = { js: 'Error', resource: 'ResourceError', promise: 'PromiseRejection', console: 'Error', manual: 'Error' };
-        return map[event.subType] || 'Error';
-    }
-
-    //为事件附加上下文信息
-    _enrichment(event) {
-        // SDK 元数据
-        event.sdk = {
-            name: 'lian-monitor',
-            version: '1.0.0',
-            packages: [{ name: 'lian-monitor', version: '1.0.0' }],
-        };
-        event.platform = 'javascript';
-        event.level = this._inferLevel(event);
-        // 通用：每个事件都带上
-        event.sessionId = this.sessionId;
-        event.pageUrl = window.location.href;
-        event.contexts = getContexts();
-        if (this.options.release) event.release = this.options.release;
-        if (this.options.environment) event.environment = this.options.environment;
-
-        // 用户信息
-        if (this.scope.userId) {
-            event.userId = this.scope.userId;
-        }
-
-        // 标签 & 额外上下文
-        if (this.scope.tags && Object.keys(this.scope.tags).length > 0) {
-            event.tags = { ...this.scope.tags };
-        }
-        if (this.scope.extras && Object.keys(this.scope.extras).length > 0) {
-            event.extras = { ...this.scope.extras };
-        }
-
-        // 错误事件：结构化 exception + 面包屑
-        if (event.type === 'error') {
-            event.breadcrumbs = this.scope.getBreadcrumbs();
-            event.exception = {
-                values: [{
-                    type: this._errorType(event),
-                    value: event.data?.message || '',
-                    stacktrace: event.data?.stack ? { frames: event.data.stack } : undefined,
-                }],
-            };
-            delete event.data;
-        }
-
-        // session 摘要：附面包屑，保留 data.duration
-        if (event.type === 'session' || event.type === 'custom') {
-            event.breadcrumbs = this.scope.getBreadcrumbs();
-        }
-        return event;
     }
 }
 

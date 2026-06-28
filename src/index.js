@@ -2,7 +2,7 @@
 import MonitorClient from './client/index.js';
 import errorCollector from './collector/error.js';
 import performanceCollector from './collector/performance.js';
-import behaviorCollector from './collector/behavior.js';
+import behaviorCollector from './collector/behavior/index.js';
 import rrwebPlugin from './plugins/rrweb.js';
 import { createVuePlugin } from './frameworks/vue.js';
 import { createErrorBoundary } from './frameworks/react.js';
