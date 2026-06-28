@@ -62,4 +62,28 @@ export default {
     sampler: null,
     beforeBreadcrumb: null,   // (crumb) => crumb | null，返回 null 丢弃面包屑
   },
+  // SessionReplay 录屏配置
+  rrweb: {
+    enabled: true,
+    maxEvents: 80,
+    checkoutEveryNms: 60000,      // 每 60 秒生成一次全量快照
+    checkoutEveryNth: 500,        // 或每 500 帧生成一次
+    sampling: {
+      mousemove: false,           // 不记录鼠标移动（数据量太大）
+      scroll: 150,                // 滚动事件节流 150ms
+    },
+    maskAllInputs: true,
+    maskTextClass: 'rr-mask',     // class="rr-mask" 的文本变 ***
+    blockClass: 'rr-block',       // class="rr-block" 的整个元素遮挡
+    maskInputOptions: {
+      password: true,             // 密码始终遮蔽
+    },
+    recordCanvas: false,          // Canvas 录制（数据量大，默认关闭）
+    recordCrossOriginIframes: false,
+    inlineStylesheet: true,
+    packFn: null,                 // 用户自定义压缩函数
+    beforeEmit: null,             // (event) => event | null
+    maxDuration: 300000,          // 最大录制时长 5 分钟
+    attachTo: ['error'],          // 录屏挂载到哪些事件类型
+  },
 }
