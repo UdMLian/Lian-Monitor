@@ -21,17 +21,22 @@ src/index.js                    — entry, exports init() + MonitorClient
   │     │     error → sendImmediate (beacon/fetch/image, no queue)
   │     │     other → send (queue → batch → deliver)
   │     ├── Manages Collectors (Map), Plugins (array), Scope, state machine
+  │     ├── Public APIs: captureError, captureMessage, setTag, setExtra, addBreadcrumb
   │     └── pagehide listener → auto flush transport on page close
   ├── client/transport.js       — send() + sendImmediate(), retry, reportFields injection
   ├── collector/error.js        — window.onerror, unhandledrejection, resource error → dedup
+  │                                console.error hijack for try-catch swallowed errors
   ├── collector/performance.js  — PerformanceObserver (resource/longtask), web-vitals (lazy), memory
   │                                resource buffer overflow prevention (setResourceTimingBufferSize
   │                                + clearResourceTimings + resourcetimingbufferfull fallback)
-  ├── collector/behavior.js     — click (with CSS selector path), history hijack, XHR/Fetch hijack
+  ├── collector/behavior.js     — click (CSS selector + HTML serialization), keypress (action keys
+  │                                only, skip input elements), history hijack, XHR/Fetch hijack,
+  │                                console.log/warn/error → breadcrumbs (with sensitive-key redaction),
   │                                MPA page-enter/page-leave tracking, self-report URL filter
   ├── plugins/rrweb.js          — session replay via rrweb (lazy), circular buffer, masking
-  ├── core/config.js            — default options
-  └── core/scope.js             — breadcrumbs + user info container
+  ├── core/config.js            — default options (sampler, captureConsole, reportFields, etc.)
+  ├── core/scope.js             — breadcrumbs (standardized format) + user info container
+  └── core/contexts.js          — UA parsing → OS, browser, device info attached to every event
 ```
 
 ### Key design decisions
@@ -42,7 +47,9 @@ src/index.js                    — entry, exports init() + MonitorClient
 - **Collector vs Plugin vs Middleware**: Collectors produce events via `client.capture()`; Plugins have lifecycle (`setup`/`teardown`) but don't produce events; Middleware are pure functions in the pipeline.
 - **Lazy loading**: `web-vitals` and `rrweb` are loaded via dynamic `import()`. They are marked as `external` in vite.config.js so they don't bundle.
 - **Session persistence**: sessionId stored in `sessionStorage`, survives page refreshes.
-- **Sampling**: error always 100% (bypasses sampling). Other types use session-sticky deterministic hash (`sessionId + type` → number 0~1), same session same type always same decision. Per-type `sampleRate` falls back to global `sampleRate`.
+- **Sampling**: Supports both static `sampleRate` (number, hash comparison) and `sampler` function `(ctx) => true/false/number` for dynamic decisions. Per-type + global fallback. Sampler function takes precedence. Deterministic hash (`sessionId + type` → number 0~1) ensures same session same type always same decision. Sampled-in events record `_sampled: true` + `sample_rate` for traceability.
+- **Event structure**: Follows Sentry-compatible format — `exception.values` (structured from flat data), `platform: 'javascript'`, `level` (inferred from type), `sdk.packages`, `contexts` (OS/browser/device), `fingerprint` (user-defined grouping), `tags`, `extras`.
+- **Breadcrumb format**: Standardized — `{ type: 'default', category, level, timestamp (seconds), data: {...} }`. Namespaced categories: `ui.click`, `ui.keypress`, `http.xhr`, `http.fetch`, `navigation.route`, `navigation.page-enter/leave`, `console`, `custom`.
 - **Error dedup**: error collector hashes `type|message|source|lineno`, skips duplicates within a session (Set max 50, trims to 25).
 - **Config validation**: `dsn` is required at construction time; `sampleRate` range-checked.
 - **Error isolation**: Pipeline middleware errors and Collector `setup`/`teardown` errors are caught individually — one failure doesn't crash the whole SDK.
@@ -52,6 +59,9 @@ src/index.js                    — entry, exports init() + MonitorClient
 - **Cross-origin transferSize**: marked `undefined` (not `0`) when hidden by `Timing-Allow-Origin` restrictions.
 - **XHR safety**: old listeners survive across `open()` reuse (closure captures correct monitor). Route hijack calls native method first, records breadcrumb only on success.
 - **Self-report filtering**: `_isOwnReportUrl()` filters SDK's own reporting requests from XHR, Fetch, and resource timing to prevent data loops.
+- **Console interception**: `console.log/warn/error` → breadcrumbs with argument serialization. Sensitive keys (`token`, `secret`, `password`, etc.) redacted to `[REDACTED]`. Disable via `behavior.captureConsole: false`.
+- **DOM serialization**: click/keypress breadcrumbs include HTML description string (`<button.btn.primary[type="submit"]>`) alongside CSS selector. No textContent (privacy). URL attributes stripped of query params.
+- **Keypress safety**: only captures action keys (Enter/Escape/Arrow keys etc.), skips all input elements (`INPUT`/`TEXTAREA`/`SELECT`/`contentEditable`). Never captures printable characters.
 - **CSS selector path**: click breadcrumbs include a validated CSS selector chain (max 5 levels, `nth-of-type` disambiguation, `querySelector` verification).
 - **rrweb masking**: `maskAllInputs`, `maskTextClass: 'rr-mask'`, `blockClass: 'rr-block'` for privacy. Circular buffer (80 events) attached to error events via middleware.
 - **Performance**: non-critical collectors start via `requestIdleCallback` (3s timeout fallback).
