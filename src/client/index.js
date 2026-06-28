@@ -36,9 +36,8 @@ class MonitorClient {
         this.sessionId = this._getOrCreateSessionId();
         // Scope：存储面包屑、用户信息，与 Collector 解耦
         this.scope = new Scope(this.options.behavior?.maxBreadcrumbs ?? 20);
-        // 错误去重：5 秒内相同错误只报一次
-        this._lastDedupKey = '';
-        this._lastDedupTime = 0;
+        // 错误去重：同类型错误 N 秒内只报一次（Map 存储，多错误交替不互相覆盖）
+        this._dedupMap = new Map();
         this._dedupInterval = this.options.dedupInterval ?? 5000;
     }
 
@@ -93,14 +92,22 @@ class MonitorClient {
         // SDK 没在运行，不处理
         if (this.state !== 'running') return
 
-        // 错误去重：5 秒内相同错误只报一次
+        // 错误去重：相同 key 在窗口内只放行一次
         if (event.type === 'error') {
             const key = this._dedupKey(event);
-            if (key === this._lastDedupKey && Date.now() - this._lastDedupTime < this._dedupInterval) {
+            const now = Date.now();
+            const lastTime = this._dedupMap.get(key);
+            if (lastTime && now - lastTime < this._dedupInterval) {
                 return;
             }
-            this._lastDedupKey = key;
-            this._lastDedupTime = Date.now();
+            this._dedupMap.set(key, now);
+
+            // 定期清过期 key，防止 Map 无限增长
+            if (this._dedupMap.size > 50) {
+                for (const [k, t] of this._dedupMap) {
+                    if (now - t > this._dedupInterval) this._dedupMap.delete(k);
+                }
+            }
         }
 
         event.event_id = this._generateId()
