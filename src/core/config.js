@@ -35,6 +35,11 @@ export default {
   retryDelay: 1000,
   // 自定义上报字段，fetch 走 header，beacon 走 body，image 走 URL 参数
   reportFields: {},
+  custom: {
+    enabled: true,
+    sampleRate: 1,            // 手动调用默认全采（实际会被 _manual 跳过）
+    sampler: null,
+  },
   error: {
     enabled: true,
     sampleRate: 1,            // 错误 100% 采集

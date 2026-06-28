@@ -125,6 +125,28 @@ class MonitorClient {
                 message: error?.message,
                 stack: error?.stack,
             },
+            _manual: true,
+        });
+    }
+
+    captureEvent(type, data, options = {}) {
+        this.capture({
+            type: 'custom',
+            subType: type,
+            timestamp: Date.now(),
+            fingerprint: 'fingerprint' in options ? options.fingerprint : undefined,
+            _manual: true,
+            data,
+        });
+    }
+
+    capturePerformance(name, data = {}) {
+        this.capture({
+            type: 'performance',
+            subType: 'custom',
+            timestamp: Date.now(),
+            _manual: true,
+            data: { name, ...data },
         });
     }
 
@@ -260,6 +282,7 @@ class MonitorClient {
             fingerprint: 'fingerprint' in options ? options.fingerprint : undefined,
             timestamp: Date.now(),
             data: { message },
+            _manual: true,
         });
     }
 
@@ -314,6 +337,12 @@ class MonitorClient {
 
     //采样：先查该类型的独立采样率，没有就用全局
     _sampling(event) {
+        if (event._manual) {
+            event._sampled = true;
+            event.sample_rate = 'manual';
+            return event;
+        }
+
         const typeConfig = this.options[event.type];
 
         const sampler = typeConfig?.sampler ?? this.options.sampler
@@ -436,10 +465,9 @@ class MonitorClient {
         }
 
         // session 摘要：附面包屑，保留 data.duration
-        if (event.type === 'session') {
+        if (event.type === 'session' || event.type === 'custom') {
             event.breadcrumbs = this.scope.getBreadcrumbs();
         }
-
         return event;
     }
 }
