@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <title>Lian-Monitor Example</title>
+  <style>
+    body { font-family: sans-serif; padding: 24px; max-width: 600px; margin: auto; }
+    button { margin: 4px; padding: 8px 16px; cursor: pointer; }
+    pre { background: #f4f4f4; padding: 12px; border-radius: 6px; overflow-x: auto; max-height: 300px; }
+    .section { margin-bottom: 24px; }
+    h1 { border-bottom: 2px solid #333; padding-bottom: 8px; }
+  </style>
+</head>
+<body>
+  <h1>Lian-Monitor SDK 示例</h1>
+
+  <div class="section">
+    <h3>错误监控</h3>
+    <button id="btn-js-error">触发 JS 错误</button>
+    <button id="btn-promise-error">触发 Promise 错误</button>
+    <button id="btn-console-error">触发 console.error</button>
+    <button id="btn-manual-error">手动上报错误</button>
+  </div>
+
+  <div class="section">
+    <h3>自定义事件</h3>
+    <button id="btn-custom-event">手动上报事件</button>
+    <button id="btn-custom-perf">手动上报性能</button>
+    <button id="btn-breadcrumb">添加面包屑</button>
+  </div>
+
+  <div class="section">
+    <h3>导航</h3>
+    <button id="btn-pushstate">pushState 跳转</button>
+    <a href="error-demo.html">跳转到错误演示页 →</a>
+  </div>
+
+  <div class="section">
+    <h3>输出</h3>
+    <pre id="output">等待事件...</pre>
+  </div>
+
+  <script type="module" src="./main.js"></script>
+</body>
+</html>

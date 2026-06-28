@@ -20,9 +20,7 @@ Thumbs.db
 .env
 .env.*
 
-# local test / demo
-examples/
-server/
+# local test / demo — now versioned as part of the project
 
 # local Claude config
 .claude/settings.local.json

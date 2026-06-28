@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <title>Error Demo - Lian-Monitor</title>
+  <style>
+    body { font-family: sans-serif; padding: 24px; max-width: 600px; margin: auto; }
+    button { margin: 4px; padding: 8px 16px; cursor: pointer; }
+    .section { margin-bottom: 24px; }
+    a { display: block; margin-top: 16px; }
+  </style>
+</head>
+<body>
+  <h1>错误演示页</h1>
+
+  <div class="section">
+    <h3>资源错误</h3>
+    <button id="btn-resource-error">加载不存在的图片</button>
+    <img id="bad-image" style="display:none" />
+    <div id="resource-status"></div>
+  </div>
+
+  <div class="section">
+    <h3>跨域脚本错误</h3>
+    <button id="btn-cross-origin">触发跨域脚本错误</button>
+    <p style="color:#888;font-size:12px">注：跨域脚本错误会显示 "Script error." 无堆栈信息</p>
+  </div>
+
+  <a href="index.html">← 返回主页面</a>
+
+  <script type="module">
+    import { init } from 'lian-monitor';
+
+    const monitor = init({
+      dsn: 'http://localhost:8787/report',
+      debug: true,
+      sampleRate: 1,
+      environment: 'development',
+    });
+
+    window.__monitor = monitor;
+
+    document.getElementById('btn-resource-error').addEventListener('click', () => {
+      const img = document.getElementById('bad-image');
+      img.src = 'https://example.invalid/nonexistent.png';
+      img.style.display = 'block';
+      document.getElementById('resource-status').textContent = '已设置错误图片 src，检查 Network 面板';
+    });
+
+    document.getElementById('btn-cross-origin').addEventListener('click', () => {
+      // 模拟一个跨域脚本错误场景
+      const script = document.createElement('script');
+      script.src = 'https://example.invalid/broken.js';
+      script.onerror = () => {
+        // 跨域脚本加载失败是资源错误，这里手动触发一个类似 Script error 的情况
+        monitor.captureError(new Error('模拟跨域脚本：原始错误信息被浏览器隐藏'), {
+          data: { note: '真实场景下 cross-origin script 错误只能拿到 "Script error." 信息' },
+        });
+      };
+      document.head.appendChild(script);
+    });
+  </script>
+</body>
+</html>
