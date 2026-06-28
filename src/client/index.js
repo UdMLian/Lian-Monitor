@@ -36,6 +36,10 @@ class MonitorClient {
         this.sessionId = this._getOrCreateSessionId();
         // Scope：存储面包屑、用户信息，与 Collector 解耦
         this.scope = new Scope(this.options.behavior?.maxBreadcrumbs ?? 20);
+        // 错误去重：5 秒内相同错误只报一次
+        this._lastDedupKey = '';
+        this._lastDedupTime = 0;
+        this._dedupInterval = this.options.dedupInterval ?? 5000;
     }
 
     getScope() {
@@ -88,6 +92,16 @@ class MonitorClient {
     capture(event) {
         // SDK 没在运行，不处理
         if (this.state !== 'running') return
+
+        // 错误去重：5 秒内相同错误只报一次
+        if (event.type === 'error') {
+            const key = this._dedupKey(event);
+            if (key === this._lastDedupKey && Date.now() - this._lastDedupTime < this._dedupInterval) {
+                return;
+            }
+            this._lastDedupKey = key;
+            this._lastDedupTime = Date.now();
+        }
 
         event.event_id = this._generateId()
         this._lastEventId = event.event_id
@@ -260,6 +274,13 @@ class MonitorClient {
             return crypto.randomUUID();
         }
         return 'evt_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+    }
+
+    _dedupKey(event) {
+        const msg = event.data?.message || '';
+        const stack = event.data?.stack || '';
+        const firstFrame = stack.split('\n')[1] || stack.split('\n')[0] || '';
+        return msg + '@' + firstFrame.trim();
     }
 
     lastEventId() {

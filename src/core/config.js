@@ -11,6 +11,8 @@ export default {
   sampleRate: 1,
   //开启后 console 输出内部日志
   debug: false,
+  // 错误去重窗口（毫秒）：相同错误在此时间内只上报一次，默认 5 秒
+  dedupInterval: 5000,
   //用户钩子，pipeline 最后一步
   /* 
   用户在 SDK 初始化时传的一个函数，pipeline 在"即将发送前"调用它。用户可以在这个函数里：
