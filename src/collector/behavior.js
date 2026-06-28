@@ -468,7 +468,12 @@ const behaviorCollector = {
   },
 
   addBreadcrumb(category, data, level = 'info') {
-    this.client.getScope().addBreadcrumb({ category, level, data });
+    const client = this.client;
+    if (client._addBreadcrumbWrapper) {
+      client._addBreadcrumbWrapper({ category, level, data });
+    } else {
+      client.getScope().addBreadcrumb({ category, level, data });
+    }
   },
 };
 

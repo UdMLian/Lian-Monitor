@@ -60,5 +60,6 @@ export default {
     maxBreadcrumbs: 20,
     captureConsole: true,     // 是否拦截 console.log/warn/error → breadcrumb
     sampler: null,
+    beforeBreadcrumb: null,   // (crumb) => crumb | null，返回 null 丢弃面包屑
   },
 }

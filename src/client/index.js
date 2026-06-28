@@ -35,6 +35,7 @@ class MonitorClient {
         this.sessionId = this._getOrCreateSessionId();
         // Scope：存储面包屑、用户信息，与 Collector 解耦
         this.scope = new Scope(this.options.behavior?.maxBreadcrumbs ?? 20);
+        this._beforeBreadcrumb = this.options.behavior?.beforeBreadcrumb || null;
         // 错误去重：同类型错误 N 秒内只报一次（Map 存储，多错误交替不互相覆盖）
         this._dedupMap = new Map();
         this._dedupInterval = this.options.dedupInterval ?? 5000;
@@ -328,6 +329,11 @@ class MonitorClient {
             data: { message },
             _manual: true,
         });
+    }
+
+    // 供 Collector 内部调用，自动应用 beforeBreadcrumb 钩子
+    _addBreadcrumbWrapper(breadcrumb) {
+        this.scope.addBreadcrumb(breadcrumb, this._beforeBreadcrumb);
     }
 
     // 用户手动记录自定义面包屑

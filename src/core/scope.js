@@ -7,13 +7,25 @@ class Scope {
     this.tags = {};
   }
 
-  addBreadcrumb(breadcrumb) {
-    this.breadcrumbs.push({
+  addBreadcrumb(breadcrumb, beforeBreadcrumb) {
+    let crumb = {
       type: 'default',
       level: 'info',
       timestamp: Date.now() / 1000,
       ...breadcrumb,
-    });
+    };
+
+    // 调用用户钩子，可以修改或返回 null 丢弃
+    if (typeof beforeBreadcrumb === 'function') {
+      try {
+        crumb = beforeBreadcrumb(crumb);
+      } catch {
+        return;  // 钩子出错 → 丢弃面包屑
+      }
+      if (!crumb) return;
+    }
+
+    this.breadcrumbs.push(crumb);
     if (this.breadcrumbs.length > this.maxBreadcrumbs) {
       this.breadcrumbs.shift();
     }
