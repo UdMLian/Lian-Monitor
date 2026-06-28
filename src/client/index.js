@@ -107,7 +107,7 @@ class MonitorClient {
         }
         /* event → [Filter] → [Sampling] → [Enrichment] → [beforeSend] → transport.send()
         每个中间件返回 null 就中断 */
-        if (current.type === 'error') {
+        if (current.type === 'error' || current.type === 'session') {
             this.transport.sendImmediate(current);
         } else {
             this.transport.send(current);
@@ -171,9 +171,23 @@ class MonitorClient {
         }
         // 4. 开工
         this.state = 'running';
+        this._sessionStart = Date.now();
 
         this._onPageHide = () => {
-            if (this.transport) this.transport.destroy()
+            if (this.transport) {
+                const breadcrumbs = this.scope.getBreadcrumbs();
+                if (breadcrumbs.length > 0) {
+                    this.capture({
+                        type: 'session',
+                        subType: 'summary',
+                        timestamp: Date.now(),
+                        data: {
+                            duration: Date.now() - this._sessionStart,
+                        },
+                    });
+                }
+                this.transport.destroy();
+            }
         }
         window.addEventListener('pagehide', this._onPageHide)
     }
@@ -408,10 +422,9 @@ class MonitorClient {
             event.extras = { ...this.scope.extras };
         }
 
-        // 错误事件：结构化 exception.values + 面包屑
+        // 错误事件：结构化 exception + 面包屑
         if (event.type === 'error') {
             event.breadcrumbs = this.scope.getBreadcrumbs();
-
             event.exception = {
                 values: [{
                     type: this._errorType(event),
@@ -420,6 +433,11 @@ class MonitorClient {
                 }],
             };
             delete event.data;
+        }
+
+        // session 摘要：附面包屑，保留 data.duration
+        if (event.type === 'session') {
+            event.breadcrumbs = this.scope.getBreadcrumbs();
         }
 
         return event;
