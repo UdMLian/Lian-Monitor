@@ -42,7 +42,7 @@ class Transport {
     //立即上报（错误专用）：beacon → fetch → image，不走队列
     sendImmediate(event) {
         if (this._isRateLimited()) {
-            this.send(event);  // 降级到队列，等限速解除
+            this.send(event);
             return;
         }
         const payload = JSON.stringify({ events: [event] })
@@ -161,7 +161,7 @@ class Transport {
             }
             return false;
         } catch {
-            return false;  // JSON 解析失败，静默降级
+            return false;
         }
     }
 
