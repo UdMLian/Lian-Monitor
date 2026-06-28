@@ -76,14 +76,14 @@ export function setupFetch(self) {
   window.fetch = async (input, init = {}) => {
     const url = typeof input === 'string' ? input : (input.url || input);
     if (self._isOwnReportUrl(url)) {
-      return self._originalFetch(input, init);
+      return self._originalFetch.call(window, input, init);
     }
 
     const startTime = Date.now();
     const method = (init.method || 'GET').toUpperCase();
 
     try {
-      const response = await self._originalFetch(input, init);
+      const response = await self._originalFetch.call(window, input, init);
       self.addBreadcrumb('http.fetch', {
         method,
         url: self._sanitizeUrl(String(url)),

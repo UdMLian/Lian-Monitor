@@ -148,9 +148,12 @@ class MonitorClient {
         if (this.options.beforeSend) {
             this.use(this.options.beforeSend);
         }
-        // 2. 创建 Transport（后面写）
+        // 2. 创建 Transport
         this.transport = new Transport(this.options)
-        // 3. 启动 Collector（后面写）
+        // 3. 先切状态再启动采集器，避免 collector.setup() 里触发的事件被 state='idle' 挡掉
+        this.state = 'running';
+        this._sessionStart = Date.now();
+        // 4. 启动 Collector
         for (const [name, collector] of this.collectors) {
             try {
                 collector.setup(this);
@@ -171,9 +174,6 @@ class MonitorClient {
                 }
             }
         }
-        // 4. 开工
-        this.state = 'running';
-        this._sessionStart = Date.now();
 
         this._onPageHide = () => {
             if (this.transport) {
