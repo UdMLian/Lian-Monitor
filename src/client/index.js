@@ -298,8 +298,15 @@ class MonitorClient {
     _dedupKey(event) {
         const msg = event.data?.message || '';
         const stack = event.data?.stack || '';
-        const firstFrame = stack.split('\n')[1] || stack.split('\n')[0] || '';
-        return msg + '@' + firstFrame.trim();
+        const subType = event.subType || '';
+        const source = event.data?.source || '';
+        const lineno = event.data?.lineno ?? '';
+        const colno = event.data?.colno ?? '';
+
+        // 取 stack 前两帧做指纹（增加精度，减少误去重）
+        const frames = stack.split('\n').slice(1, 3).map(f => f.trim()).join('|');
+
+        return [subType, msg, source, lineno, colno, frames].join('@');
     }
 
     lastEventId() {
