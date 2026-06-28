@@ -5,6 +5,7 @@ const rrwebPlugin = {
         // 环形缓冲区：只保留最近的事件
         this._events = []
         this._maxEvents = 80
+        this._active = true
 
         // 通过 middleware 把录屏数据附到错误事件上
         // 不清空缓冲区：连续错误共享录屏数据（环形缓冲区自动淘汰旧数据）
@@ -22,6 +23,7 @@ const rrwebPlugin = {
     async _startRecording() {
         try {
             const { record } = await import('rrweb')
+            if (!this._active) return;  // ← 加这行，import 完成前已关闭就退出
             this._stopFn = record({
                 emit: (event) => {
                     this._events.push(event)
@@ -49,6 +51,7 @@ const rrwebPlugin = {
     },
 
     teardown() {
+        this._active = false;
         if (this._stopFn) this._stopFn();
         this._events = [];
     },
