@@ -21,9 +21,9 @@ function getOS(ua, platform) {
   }
 
   // macOS
-  const macMatch = ua.match(/Mac OS X (\d+[._]\d+)/);
+  const macMatch = ua.match(/Mac OS X (\d+[._]\d+(?:[._]\d+)?)/);
   if (macMatch) {
-    return { name: 'macOS', version: macMatch[1].replace('_', '.') };
+    return { name: 'macOS', version: macMatch[1].replace(/_/g, '.') };
   }
 
   // Linux
@@ -43,6 +43,20 @@ function getOS(ua, platform) {
 }
 
 function getBrowser(ua) {
+  // Samsung Internet（必须早于 Chrome 检测）
+  const samsungMatch = ua.match(/SamsungBrowser\/(\d+\.\d+)/);
+  if (samsungMatch) return { name: 'Samsung Internet', version: samsungMatch[1] };
+
+  // WeChat 内置浏览器
+  if (/MicroMessenger/i.test(ua)) {
+    const wxMatch = ua.match(/MicroMessenger\/(\d+\.\d+)/);
+    return { name: 'WeChat', version: wxMatch ? wxMatch[1] : '' };
+  }
+
+  // UC Browser
+  const ucMatch = ua.match(/UCBrowser\/(\d+\.\d+)/);
+  if (ucMatch) return { name: 'UC Browser', version: ucMatch[1] };
+
   // Edge (Chromium)
   const edgeMatch = ua.match(/Edg\/(\d+\.\d+)/);
   if (edgeMatch) return { name: 'Edge', version: edgeMatch[1] };
@@ -70,5 +84,7 @@ function getBrowser(ua) {
 function getDevice(ua) {
   if (/Mobile|Android.*Mobile|iPhone|iPod/.test(ua)) return { type: 'mobile' };
   if (/iPad|Tablet/.test(ua)) return { type: 'tablet' };
+  // iPadOS 13+ 伪装成桌面 Safari，通过触摸点判断
+  if (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1) return { type: 'tablet' };
   return { type: 'desktop' };
 }
