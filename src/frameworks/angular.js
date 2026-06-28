@@ -9,8 +9,13 @@
 //     ]
 //   })
 
+let _MonitorErrorHandler = null;
+
 export function createAngularErrorHandler(client) {
-  return class MonitorErrorHandler {
+  // 复用已创建的 class，避免每次调用创建新 class
+  if (_MonitorErrorHandler) return _MonitorErrorHandler;
+
+  _MonitorErrorHandler = class MonitorErrorHandler {
     handleError(error) {
       // Angular 错误对象可能包装了一层，取原始错误
       const err = error.originalError || error;
@@ -24,4 +29,6 @@ export function createAngularErrorHandler(client) {
       console.error(err);
     }
   };
+
+  return _MonitorErrorHandler;
 }

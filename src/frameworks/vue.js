@@ -4,6 +4,8 @@
 //   Vue 3: app.use(createVuePlugin(monitor))
 
 export function createVuePlugin(client) {
+    let originalErrorHandler = null;
+
     return {
         install(app) {
             // Vue 3: app 是 { config: { errorHandler } }
@@ -11,7 +13,7 @@ export function createVuePlugin(client) {
             const config = app.config;
             if (!config) return;
 
-            const original = config.errorHandler;
+            originalErrorHandler = config.errorHandler;
 
             config.errorHandler = (err, instance, info) => {
                 client.captureError(err instanceof Error ? err : new Error(String(err)), {
@@ -21,10 +23,18 @@ export function createVuePlugin(client) {
                     },
                 });
                 // 调用原有 handler
-                if (original) {
-                    original.call(app, err, instance, info);
+                if (originalErrorHandler) {
+                    originalErrorHandler.call(app, err, instance, info);
                 }
             };
+        },
+
+        // 恢复原始 errorHandler，防止内存泄漏
+        uninstall(app) {
+            const config = app?.config;
+            if (config) {
+                config.errorHandler = originalErrorHandler;
+            }
         },
     };
 }

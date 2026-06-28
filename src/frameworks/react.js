@@ -32,6 +32,13 @@ export function createErrorBoundary(React, client) {
       }
     }
 
+    componentWillUnmount() {
+      // 组件卸载时通知上层（可用于取消监控等清理操作）
+      if (this.props.onDispose) {
+        this.props.onDispose();
+      }
+    }
+
     render() {
       if (this.state.hasError) {
         return this.props.fallback || null;
