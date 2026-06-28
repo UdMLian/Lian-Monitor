@@ -3,6 +3,8 @@ import config from "../core/config.js";
 import Transport from './transport.js';
 import Scope from "../core/scope.js";
 import { getContexts } from "../core/contexts.js";
+
+let _cachedContexts = null
 class MonitorClient {
     constructor(options = {}) {
         // 必填校验
@@ -387,7 +389,9 @@ class MonitorClient {
         // 通用：每个事件都带上
         event.sessionId = this.sessionId;
         event.pageUrl = window.location.href;
-        event.contexts = getContexts();
+        //  改成用缓存
+        if (!_cachedContexts) _cachedContexts = getContexts();
+        event.contexts = _cachedContexts;
         if (this.options.release) event.release = this.options.release;
         if (this.options.environment) event.environment = this.options.environment;
 
