@@ -114,7 +114,7 @@ class Transport {
         for (const [key, value] of Object.entries(this.reportFields)) {
             params.set(key, value);
         }
-        params.set('data', data);
+        params.set('data', encodeURIComponent(data));
         const img = new Image()
         img.src = `${this.url}?${params.toString()}`
         return
@@ -122,6 +122,8 @@ class Transport {
 
     async _sendByFetch(data) {
         try {
+            const controller = new AbortController();
+            const timer = setTimeout(() => controller.abort(), this.requestTimeout ?? 10000);
             const headers = { 'Content-Type': 'application/json' }
             for (const [key, value] of Object.entries(this.reportFields)) {
                 headers[key] = value
@@ -130,10 +132,12 @@ class Transport {
                 method: 'POST',
                 headers,
                 body: data,
+                signal: controller.signal,
             });
+            clearTimeout(timer);
             return response
         } catch (error) {
-            // 网络错误
+            // 网络错误或超时（AbortError）
             return null
         }
     }
@@ -145,15 +149,20 @@ class Transport {
    */
 
     _sendByBeacon(data) {
-        const body = JSON.stringify({
-            ...this.reportFields,
-            ...JSON.parse(data)
-        })
-        const blob = new Blob([body], { type: 'application/json' })
-        if (navigator.sendBeacon) {
-            return navigator.sendBeacon(this.url, blob);
+        try {
+            const parsed = JSON.parse(data);
+            const body = JSON.stringify({
+                ...this.reportFields,
+                ...parsed
+            });
+            const blob = new Blob([body], { type: 'application/json' });
+            if (navigator.sendBeacon) {
+                return navigator.sendBeacon(this.url, blob);
+            }
+            return false;
+        } catch {
+            return false;  // JSON 解析失败，静默降级
         }
-        return false
     }
 
     //重试

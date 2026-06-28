@@ -35,6 +35,8 @@ export default {
   retryCount: 3,
   //重试基础延迟
   retryDelay: 1000,
+  // fetch 请求超时时间（毫秒），超时后走降级链路
+  requestTimeout: 10000,
   // 自定义上报字段，fetch 走 header，beacon 走 body，image 走 URL 参数
   reportFields: {},
   custom: {
