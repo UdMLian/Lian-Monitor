@@ -146,7 +146,7 @@ const behaviorCollector = {
       monitor._loadendHandler = () => {
         self.addBreadcrumb('http.xhr', {
           method: monitor.method,
-          url: monitor.url,
+          url: self._sanitizeUrl(monitor.url),
           status: this.status,
           duration: Date.now() - monitor.startTime,
         });
@@ -184,7 +184,7 @@ const behaviorCollector = {
         const response = await self._originalFetch(input, init);
         self.addBreadcrumb('http.fetch', {
           method,
-          url: String(url),
+          url: self._sanitizeUrl(String(url)),
           status: response.status,
           duration: Date.now() - startTime,
         });
@@ -192,7 +192,7 @@ const behaviorCollector = {
       } catch (err) {
         self.addBreadcrumb('http.fetch', {
           method,
-          url: String(url),
+          url: self._sanitizeUrl(String(url)),
           error: true,
           duration: Date.now() - startTime,
         });
@@ -367,6 +367,22 @@ const behaviorCollector = {
       if (wrapper && savedOriginal && console[method] === wrapper) {
         console[method] = savedOriginal;
       }
+    }
+  },
+
+  // URL 脱敏：去掉 token/secret 等敏感查询参数
+  _sanitizeUrl(url) {
+    try {
+      const u = new URL(url, location.origin);
+      const sensitiveParams = ['token', 'secret', 'password', 'api_key', 'apikey', 'auth', 'authorization', 'access_token'];
+      for (const param of sensitiveParams) {
+        if (u.searchParams.has(param)) {
+          u.searchParams.set(param, '[REDACTED]');
+        }
+      }
+      return u.origin + u.pathname + u.search;
+    } catch {
+      return url;
     }
   },
 
