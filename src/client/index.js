@@ -353,6 +353,11 @@ class MonitorClient {
         event.sample_rate = rate;
         return event;
     }
+    _inferLevel(event) {
+        if (event.type === 'error') return 'error';
+        if (event.type === 'message') return event.subType || 'info';  // 'info'/'warning'/'error'
+        return 'info';
+    }
 
     //为事件附加上下文信息
     _enrichment(event) {
@@ -360,8 +365,10 @@ class MonitorClient {
         event.sdk = {
             name: 'lian-monitor',
             version: '1.0.0',
+            packages: [{ name: 'lian-monitor', version: '1.0.0' }],
         };
-
+        event.platform = 'javascript';
+        event.level = this._inferLevel(event);
         // 通用：每个事件都带上
         event.sessionId = this.sessionId;
         event.pageUrl = window.location.href;
