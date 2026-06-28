@@ -118,7 +118,7 @@ class MonitorClient {
             type: 'error',
             subType: 'manual',
             timestamp: Date.now(),
-            fingerprint: options.fingerprint || undefined,
+            fingerprint: 'fingerprint' in options ? options.fingerprint : undefined,
             data: {
                 message: error?.message,
                 stack: error?.stack,
@@ -241,7 +241,7 @@ class MonitorClient {
         this.capture({
             type: 'message',
             subType: level,
-            fingerprint: options.fingerprint || undefined,
+            fingerprint: 'fingerprint' in options ? options.fingerprint : undefined,
             timestamp: Date.now(),
             data: { message },
         });
