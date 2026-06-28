@@ -227,14 +227,17 @@ class MonitorClient {
 
         this._onPageHide = () => {
             if (this.transport) {
-                this.capture({
-                    type: 'session',
-                    subType: 'summary',
-                    timestamp: Date.now(),
-                    data: {
-                        duration: Date.now() - this._sessionStart,
-                    },
-                });
+                const breadcrumbs = this.scope.getBreadcrumbs();
+                if (breadcrumbs.length > 0) {
+                    this.capture({
+                        type: 'session',
+                        subType: 'summary',
+                        timestamp: Date.now(),
+                        data: {
+                            duration: Date.now() - this._sessionStart,
+                        },
+                    });
+                }
                 this.transport.destroy();
             }
         }
