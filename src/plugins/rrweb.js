@@ -46,7 +46,9 @@ const rrwebPlugin = {
                 },
             })
         } catch (e) {
-
+            if (this.client?.options?.debug) {
+                console.warn('[Monitor] rrweb failed to load:', e.message);
+            }
         }
     },
 

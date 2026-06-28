@@ -137,7 +137,9 @@ const performanceCollector = {
       onTTFB(handler);
       onINP(handler);
     } catch (e) {
-      // web-vitals 加载失败，跳过
+      if (this.client?.options?.debug) {
+        console.warn('[Monitor] web-vitals failed to load:', e.message);
+      }
     }
   },
 
