@@ -47,10 +47,18 @@ class MonitorClient {
 
     _getOrCreateSessionId() {
         const key = 'monitor_session';
-        let sessionId = sessionStorage.getItem(key);
-        if (!sessionId) {
-            sessionId = 'session_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+        try {
+            let sessionId = sessionStorage.getItem(key);
+            if (sessionId) return sessionId;
+        } catch {
+            // sessionStorage 不可用（SSR、隐私模式、沙箱 iframe）
+        }
+
+        const sessionId = 'session_' + Date.now() + '_' + Math.random().toString(36).substring(2, 11);
+        try {
             sessionStorage.setItem(key, sessionId);
+        } catch {
+            // 写入失败不阻塞
         }
         return sessionId;
     }
@@ -277,10 +285,14 @@ class MonitorClient {
     }
 
     _generateId() {
-        if (typeof crypto !== 'undefined' && crypto.randomUUID) {
-            return crypto.randomUUID();
+        try {
+            if (typeof globalThis.crypto !== 'undefined' && globalThis.crypto.randomUUID) {
+                return globalThis.crypto.randomUUID();
+            }
+        } catch {
+            // crypto 不可用
         }
-        return 'evt_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+        return 'evt_' + Date.now() + '_' + Math.random().toString(36).substring(2, 11);
     }
 
     _dedupKey(event) {
