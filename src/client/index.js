@@ -112,11 +112,12 @@ class MonitorClient {
     }
 
     // 用户自己的 try-catch 里就能调：client.captureError(err)。
-    captureError(error) {
+    captureError(error, options = {}) {
         this.capture({
             type: 'error',
             subType: 'manual',
             timestamp: Date.now(),
+            fingerprint: options.fingerprint || undefined,
             data: {
                 message: error?.message,
                 stack: error?.stack,
@@ -235,10 +236,11 @@ class MonitorClient {
         return this;
     }
 
-    captureMessage(message, level = 'info') {
+    captureMessage(message, level = 'info', options = {}) {
         this.capture({
             type: 'message',
             subType: level,
+            fingerprint: options.fingerprint || undefined,
             timestamp: Date.now(),
             data: { message },
         });
