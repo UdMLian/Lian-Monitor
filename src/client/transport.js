@@ -88,6 +88,7 @@ class Transport {
             const seconds = /^\d+$/.test(retryAfter)
                 ? parseInt(retryAfter, 10)
                 : Math.max(0, (new Date(retryAfter).getTime() - Date.now()) / 1000);
+            if (!isFinite(seconds)) return;  // ← 加这行，解析失败就不设
             this._rateLimitUntil = Date.now() + seconds * 1000;
         }
 
