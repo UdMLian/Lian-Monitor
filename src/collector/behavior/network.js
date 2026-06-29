@@ -84,20 +84,28 @@ export function setupFetch(self) {
 
     try {
       const response = await self._originalFetch.call(window, input, init);
-      self.addBreadcrumb('http.fetch', {
-        method,
-        url: self._sanitizeUrl(String(url)),
-        status: response.status,
-        duration: Date.now() - startTime,
-      });
+      try {
+        self.addBreadcrumb('http.fetch', {
+          method,
+          url: self._sanitizeUrl(String(url)),
+          status: response.status,
+          duration: Date.now() - startTime,
+        });
+      } catch {
+        // SDK 内部错误不应污染业务 fetch 的返回结果
+      }
       return response;
     } catch (err) {
-      self.addBreadcrumb('http.fetch', {
-        method,
-        url: self._sanitizeUrl(String(url)),
-        error: true,
-        duration: Date.now() - startTime,
-      });
+      try {
+        self.addBreadcrumb('http.fetch', {
+          method,
+          url: self._sanitizeUrl(String(url)),
+          error: true,
+          duration: Date.now() - startTime,
+        });
+      } catch {
+        // SDK 内部错误不应影响业务
+      }
       throw err;
     }
   };
