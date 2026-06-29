@@ -6,6 +6,9 @@
  */
 import { getContexts } from '../core/contexts.js';
 
+// 事件格式版本：与 SDK 版本解耦，字段结构变化时手动递增
+const SCHEMA_VERSION = 1;
+
 // userId + type → 0~1 固定值。同用户同类型永远同结果，采样稳定可复现
 function _sample(client, type) {
     const seed = (client.scope.userId || client.sessionId) + '_' + type;
@@ -150,9 +153,10 @@ export function enrichEvent(client, event) {
     // SDK 元数据
     event.sdk = {
         name: 'lian-monitor',
-        version: '1.0.0',
-        packages: [{ name: 'lian-monitor', version: '1.0.0' }],
+        version: __SDK_VERSION__,
+        packages: [{ name: 'lian-monitor', version: __SDK_VERSION__ }],
     };
+    event.schema_version = SCHEMA_VERSION;
     event.platform = 'javascript';
     event.level = _inferLevel(event);
     // 通用：每个事件都带上
