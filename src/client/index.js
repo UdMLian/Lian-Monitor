@@ -4,6 +4,7 @@ import Transport from './transport.js';
 import Scope from "../core/scope.js";
 import { filterEvent, sampleEvent, enrichEvent } from './middleware.js';
 import { getOrCreateSessionId, generateId, dedupKey } from './utils.js';
+import { normalizeConfig } from "../core/normalizeConfig.js";
 import {
   captureError, captureEvent, capturePerformance, captureMessage,
   addBreadcrumb, setUserId, setTag, setExtra,
@@ -11,7 +12,10 @@ import {
 
 class MonitorClient {
     constructor(options = {}) {
-        // 必填校验
+        // 配置兼容层：废弃参数映射 + 警告
+        options = normalizeConfig(options);
+
+        // 必填校验（在 normalizeConfig 之后，因为废弃参数可能已迁移）
         if (!options.dsn) {
             throw new Error('[Monitor] dsn is required');
         }
