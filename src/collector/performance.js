@@ -156,12 +156,16 @@ const performanceCollector = {
   },
 
   _capture(subType, data) {
-    this.client.capture({
-      type: 'performance',
-      subType: subType,
-      timestamp: Date.now(),
-      data: data,
-    });
+    try {
+      this.client.capture({
+        type: 'performance',
+        subType: subType,
+        timestamp: Date.now(),
+        data: data,
+      });
+    } catch {
+      // SDK 内部错误不应影响业务（PerformanceObserver 回调等）
+    }
   },
 };
 
