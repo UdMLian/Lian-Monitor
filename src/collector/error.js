@@ -64,14 +64,19 @@ const errorCollector = {
     }
   },
 
-  // 内部：统一构建 event 并交给 client                                                                                   
+  // 内部：统一构建 event 并交给 client
+  // try-catch 防止 SDK 自身异常阻断原始回调链（如 window.onerror）
   _capture(type, data) {
-    this.client.capture({
-      type: 'error',
-      subType: type,
-      timestamp: Date.now(),
-      data: data,
-    });
+    try {
+      this.client.capture({
+        type: 'error',
+        subType: type,
+        timestamp: Date.now(),
+        data: data,
+      });
+    } catch {
+      // SDK 内部错误不应影响业务
+    }
   }
 }
 export default errorCollector;
