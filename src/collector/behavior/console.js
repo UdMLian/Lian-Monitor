@@ -28,14 +28,18 @@ export function setupConsole(self) {
       // 先调原始方法，保留控制台输出
       original.apply(console, args);
 
-      //console.log 的参数可能包含敏感数据，直接原样上报 = 泄露
-      const serialized = Array.from(args).map(arg => self._sanitizeArg(arg));
+      try {
+        //console.log 的参数可能包含敏感数据，直接原样上报 = 泄露
+        const serialized = Array.from(args).map(arg => self._sanitizeArg(arg));
 
-      const breadcrumbLevel = method === 'log' ? 'log' : method === 'warn' ? 'warning' : 'error';
-      self.addBreadcrumb('console', {
-        level: method,
-        args: serialized,
-      }, breadcrumbLevel);
+        const breadcrumbLevel = method === 'log' ? 'log' : method === 'warn' ? 'warning' : 'error';
+        self.addBreadcrumb('console', {
+          level: method,
+          args: serialized,
+        }, breadcrumbLevel);
+      } catch {
+        // SDK 内部错误不应从 console.log/warn/error 的调用处向外传播
+      }
     };
     self['_consoleWrapper_' + method] = wrapper;
     console[method] = wrapper;
